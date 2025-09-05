@@ -1,0 +1,38 @@
+{
+  "name": "com.u0ugames.localization",
+  "version": "1.0.0",
+  "displayName": "U0UGames Localization System",
+  "description": "A comprehensive localization system for Unity projects with AssetBundle support, dynamic module loading, and multi-language management.",
+  "unity": "2021.3",
+  "keywords": [
+    "localization",
+    "i18n",
+    "multilingual",
+    "assetbundle",
+    "translation",
+    "language"
+  ],
+  "author": {
+    "name": "U0UGames",
+    "email": "support@u0ugames.com"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.0.2"
+  },
+  "samples": [
+    {
+      "displayName": "Basic Usage Example",
+      "description": "Basic example showing how to use the localization system",
+      "path": "Samples~/BasicExample"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/U0UGames/Unity-Localization-System.git"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/U0UGames/Unity-Localization-System",
+  "bugs": {
+    "url": "https://github.com/U0UGames/Unity-Localization-System/issues"
+  }
+}

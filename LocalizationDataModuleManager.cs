@@ -1,0 +1,231 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UnityEngine;
+
+namespace U0UGames.Localization
+{
+    public class LocalizationDataModuleManager
+    {
+        private LocalizationConfig _config;
+        private LocalizationConfig Config
+        {
+            get
+            {
+                if (_config != null) return _config;
+                _config = LocalizationManager.Config;
+                return _config;
+            }    
+        }
+
+        private int _maxDynamicModuleCount = 20;
+        public void Init(LocalizationConfig config)
+        {
+            _config = config;
+            // _currLanguageAssetBundle = null;
+            DataModuleLookup.Clear();
+            DataModuleList.Clear();
+            _dynamicLoadDataModuleList.Clear();
+            _maxDynamicModuleCount = Config.MaxDynamicModuleCount;
+        }
+
+        private AssetBundle _currLanguageAssetBundle;
+        private string _currLanguageName;
+        public void ChangeAssetBundle(AssetBundle newLanguageAsset,string languageCode)
+        {
+            if (newLanguageAsset == null)
+            {
+                Debug.LogError("newLanguageAsset is null");
+                return;
+            }
+
+            // 数据是相同，无需更新
+            if (_currLanguageAssetBundle == newLanguageAsset)
+            {
+                return;
+            }
+            
+            // 清空所有本地化模块
+            foreach (var module in DataModuleList)
+            {
+                module.Unload();
+            }
+            _dynamicLoadDataModuleList.Clear();
+            DataModuleList.Clear();
+            DataModuleLookup.Clear();
+            
+            // 卸载旧的数据包
+            if(_currLanguageAssetBundle!=null)
+            {
+                _currLanguageAssetBundle.UnloadAsync(true);
+            }
+
+            _currLanguageName = languageCode;
+            _currLanguageAssetBundle = newLanguageAsset;
+        }
+        
+        
+        private readonly Dictionary<string,LocalizationDataModule> DataModuleLookup = new Dictionary<string,LocalizationDataModule>();
+        private readonly List<LocalizationDataModule> DataModuleList = new List<LocalizationDataModule>();
+
+        public LocalizationDataModule TryLoadDataModule(string moduleName)
+        {
+            if (!_currLanguageAssetBundle && !string.IsNullOrEmpty(_currLanguageName))
+            {
+                LocalizationManager.TryGetLanguageAssetBundle(_currLanguageName,out _currLanguageAssetBundle);
+            }
+            
+            if (!_currLanguageAssetBundle)
+            {
+                Debug.LogError("找不到本地化AssetBundle");
+                return null;
+            }
+
+            // 如果缓存中存在所需模块，直接返回
+            if (DataModuleLookup.TryGetValue(moduleName, out var existModule)
+                && existModule.LanguageAssetBundle == _currLanguageAssetBundle)
+            {
+                return existModule;
+            }
+            
+            // 不存在则创建新的本地化模块
+            // 先卸载旧的模块
+            if (existModule != null)
+            {
+                UnloadDataModule(existModule);
+            }
+            // 创建新的空模块
+            LocalizationDataModule module = new LocalizationDataModule(moduleName,_currLanguageAssetBundle);
+            DataModuleList.Add(module);
+            DataModuleLookup[moduleName] = module;
+            module.LoadData();
+
+            // 返回新模块
+            return module;
+        }
+        public void LoadDataModule(List<string> moduleNameList)
+        {
+            if(moduleNameList == null || moduleNameList.Count == 0)return;
+            foreach (var name in moduleNameList)
+            {
+                TryLoadDataModule(name);
+            }
+        }
+
+
+        private void UnloadDataModule(LocalizationDataModule module)
+        {
+            module.Unload();
+            DataModuleLookup.Remove(module.Name);
+            DataModuleList.Remove(module);
+            _dynamicLoadDataModuleList.Remove(module);
+        }
+        public void UnloadDataModule(string moduleName)
+        {
+            if (DataModuleLookup.TryGetValue(moduleName, out var module))
+            {
+                UnloadDataModule(module);
+            }
+        }
+        public void UnloadDataModule(List<string> moduleNameList)
+        {
+            if(moduleNameList == null || moduleNameList.Count == 0)return;
+            foreach (var name in moduleNameList)
+            {
+                UnloadDataModule(name);
+            }
+        }
+        // private int _maxDynamicModuleCount = 10;
+        private List<LocalizationDataModule> _dynamicLoadDataModuleList = new List<LocalizationDataModule>();
+        private void RemoveOldestDynamicModule()
+        {
+            // float minLastUseTime = Time.time;
+            LocalizationDataModule oldestModule = _dynamicLoadDataModuleList.Aggregate(
+                (a, b) => a.LastUseTime < b.LastUseTime ? a : b);
+            if (oldestModule != null)
+            {
+                UnloadDataModule(oldestModule);
+            }
+        }
+        private bool TryAddDynamicModule(string moduleName, out LocalizationDataModule module)
+        {
+            module = TryLoadDataModule(moduleName);
+            if (module != null)
+            {
+                if (_dynamicLoadDataModuleList.Count > _maxDynamicModuleCount)
+                {
+                    RemoveOldestDynamicModule();
+                }
+                _dynamicLoadDataModuleList.Add(module);
+            }
+            return module != null;
+        }
+        
+        public bool TryGetText(string textKey, out string result)
+        {
+            result = textKey;
+            string moduleName = LocalizationManager.GetModuleName(textKey);
+            if (string.IsNullOrEmpty(moduleName))
+            {
+                return false;
+            }
+            
+            LocalizationManager.ProcessLocalizeKey(textKey, out string prefix, out string keyword);
+            if (string.IsNullOrEmpty(prefix)) return false;
+            
+            if (DataModuleLookup.TryGetValue(moduleName, out var module))
+            {
+                if (module.TryGetLocalizeString(prefix, keyword, out string value))
+                {
+                    if (value != null)
+                    {
+                        result = value;
+                        return true;
+                    }
+                    return false;
+                }
+            }
+
+            if (!TryAddDynamicModule(moduleName, out var tempModule))
+            {
+                return false;
+            }
+            if (tempModule.TryGetLocalizeString(prefix, keyword, out var tempValue))
+            {
+                result = tempValue;
+                return true;
+            }
+            
+            return false;
+        }
+
+        public Sprite GetSprite(string key)
+        {
+            LocalizationManager.ProcessLocalizeKey(key, out string prefix, out string keyword);
+            if (string.IsNullOrEmpty(prefix)) return null;
+
+            foreach (var module in DataModuleList)
+            {
+                if (module.TryGetLocalizeObject<Sprite>(prefix, keyword, out Sprite value))
+                {
+                    return value;
+                }
+            }
+            return null;
+        }
+
+        public T GetObject<T>(string key) where T:UnityEngine.Object
+        {
+            LocalizationManager.ProcessLocalizeKey(key, out string prefix, out string keyword);
+            foreach (var module in DataModuleList)
+            {
+                if (module.TryGetLocalizeObject<T>(prefix, keyword, out T value))
+                {
+                    return value;
+                }
+            }
+            return null;
+        }
+    }
+}
