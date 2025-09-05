@@ -1,14 +1,12 @@
 ﻿using System;
 using TMPro;
-using U0UGames.Framework.EventManager;
-
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace U0UGames.Localization.UI
 {
     [RequireComponent(typeof(TMP_Text))]
-    public class LocalizeText:MonoBehaviour,IEventListener
+    public class LocalizeText:MonoBehaviour
     {
         [SerializeField] private TMP_Text _target;
         public TMP_Text TargetText => _target;
@@ -119,16 +117,17 @@ namespace U0UGames.Localization.UI
         {
             if(isListening)return;
             isListening = true;
-            EventManager.AddListener<LocalizeLanguageChangeEvent>(LanguageChangeEventHandle);
+            LocalizationManager.OnLanguageChanged += LanguageChangeEventHandle;
         }
 
         public void StopListening()
         {
+            if(!isListening)return;
             isListening = false;
-            EventManager.RemoveListener<LocalizeLanguageChangeEvent>(LanguageChangeEventHandle);
+            LocalizationManager.OnLanguageChanged -= LanguageChangeEventHandle;
         }
 
-        private void LanguageChangeEventHandle(LocalizeLanguageChangeEvent obj)
+        private void LanguageChangeEventHandle(string languageCode)
         {
             UpdateText();
         }

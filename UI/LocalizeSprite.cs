@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using U0UGames.Framework.EventManager;
 using UnityEngine;
 
 namespace U0UGames.Localization.UI
 {
-    public class LocalizeSprite:MonoBehaviour,IEventListener
+    public class LocalizeSprite:MonoBehaviour
     {
         [Serializable]
         public class LocalizeSpriteConfig
@@ -75,14 +74,15 @@ namespace U0UGames.Localization.UI
         {
             if(_isListening)return;
             _isListening = true;
-            EventManager.AddListener<LocalizeLanguageChangeEvent>(LanguageChangeEventHandle);
+            LocalizationManager.OnLanguageChanged += LanguageChangeEventHandle;
         }
         public void StopListening()
         {
+            if(!_isListening)return;
             _isListening = false;
-            EventManager.RemoveListener<LocalizeLanguageChangeEvent>(LanguageChangeEventHandle);
+            LocalizationManager.OnLanguageChanged -= LanguageChangeEventHandle;
         }
-        private void LanguageChangeEventHandle(LocalizeLanguageChangeEvent obj)
+        private void LanguageChangeEventHandle(string languageCode)
         {
             UpdateImage();
         }

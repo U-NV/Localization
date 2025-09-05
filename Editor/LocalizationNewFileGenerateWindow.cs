@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using OfficeOpenXml.Drawing.Chart;
-using U0UGames.Framework;
-using U0UGames.Framework.Utils;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -25,10 +23,9 @@ namespace U0UGames.Localization.Editor
         private int GetDataLanguageCodeIndex()
         {
             var languageCodeIndex = _localizationConfig.originalLanguageCodeIndex;
-            if (languageCodeIndex < 0 || languageCodeIndex > _localizationConfig.languageDisplayDataList.Count)
+            if (languageCodeIndex < 0 || languageCodeIndex >= _localizationConfig.languageDisplayDataList.Count)
             {
-                EditorGUILayout.LabelField("Error:选择了无效的语言码, 请在配置界面中重新选择");
-                return -1;
+                return -1; // 返回-1表示无效索引，由调用方处理错误显示
             }
             return languageCodeIndex;
         }
@@ -296,7 +293,7 @@ namespace U0UGames.Localization.Editor
             
             if (rawDataList == null || rawDataList.Count == 0)
             {
-                ULog.LogError("找不到任何可以导出的文件");
+                Debug.LogError("找不到任何可以导出的文件");
                 return;
             }
             // 删除旧的数据
@@ -401,6 +398,11 @@ namespace U0UGames.Localization.Editor
             EditorGUILayout.LabelField(info,EditorStyles.boldLabel);
             
             var languageCodeIndex = GetDataLanguageCodeIndex();
+            if (languageCodeIndex < 0 || languageCodeIndex >= _localizationConfig.languageDisplayDataList.Count)
+            {
+                EditorGUILayout.LabelField("Error: 选择了无效的语言码, 请在配置界面中重新选择", EditorStyles.helpBox);
+                return;
+            }
             string currLanguageCode = _localizationConfig.languageDisplayDataList[languageCodeIndex].languageCode;
             
             ShowConfig("原始表格路径:",_localizationConfig.excelDataFolderRootPath);
@@ -577,63 +579,43 @@ namespace U0UGames.Localization.Editor
             EditorUtility.ClearProgressBar();
         }
 
-        private void JsonFileToAssetBundles()
+        private void CopyJsonFilesToStreamingAssets()
         {
-            EditorUtility.DisplayProgressBar("导出AssetBundles", "导出AssetBundles", 0);
+            EditorUtility.DisplayProgressBar("复制JSON文件到StreamingAssets", "复制JSON文件到StreamingAssets", 0);
 
             var languageCodeList = _localizationConfig.GetLanguageCodeList();
-            List<AssetBundleBuild> assetBundleDefinitionList = new();
-            foreach (var languageCode in languageCodeList)
-            {
-                string folderPath = LocalizationConfig.GetJsonFileFolderFullPath(languageCode);
-                AssetBundleBuild ab = new();
-                ab.assetBundleName = languageCode;
-                
-                var allJsonFileFullPath = Directory.EnumerateFiles(folderPath, "*.json", SearchOption.TopDirectoryOnly).ToArray();
-                string[] assetNames = new string[allJsonFileFullPath.Length];
-                string[] addressableNames = new string[allJsonFileFullPath.Length];
-                for (var index = 0; index < allJsonFileFullPath.Length; index++)
-                {
-                    var fullPath = allJsonFileFullPath[index];
-                    
-                    assetNames[index] = fullPath.Replace(Application.dataPath, "Assets");
-                    addressableNames[index] = Path.GetFileNameWithoutExtension(fullPath);
-                }
-                
-                ab.assetNames = assetNames;
-                ab.addressableNames = addressableNames;
-                
-                assetBundleDefinitionList.Add(ab);
-            }
-
-            string outputPath = Path.Combine(Application.streamingAssetsPath, 
+            string streamingAssetsPath = Path.Combine(Application.streamingAssetsPath, 
                 LocalizationManager.LocalizationResourcesFolder);
-            if (!Directory.Exists(outputPath))
-                Directory.CreateDirectory(outputPath);
             
-            BuildAssetBundlesParameters buildInput = new()
+            if (!Directory.Exists(streamingAssetsPath))
+                Directory.CreateDirectory(streamingAssetsPath);
+
+            int totalLanguages = languageCodeList.Count;
+            for (int i = 0; i < totalLanguages; i++)
             {
-                outputPath = outputPath.Replace(Application.dataPath, "Assets"),
-                options = BuildAssetBundleOptions.UncompressedAssetBundle|BuildAssetBundleOptions.AssetBundleStripUnityVersion,
-                bundleDefinitions = assetBundleDefinitionList.ToArray()
-            };
-            AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(buildInput);
-            // Look at the results
-            if (manifest != null)
-            {
-                foreach(var bundleName in manifest.GetAllAssetBundles())
+                var languageCode = languageCodeList[i];
+                string sourceFolderPath = LocalizationConfig.GetJsonFileFolderFullPath(languageCode);
+                string targetFolderPath = Path.Combine(streamingAssetsPath, languageCode);
+                
+                // 确保目标文件夹存在
+                if (!Directory.Exists(targetFolderPath))
+                    Directory.CreateDirectory(targetFolderPath);
+                
+                // 复制所有JSON文件
+                var jsonFiles = Directory.EnumerateFiles(sourceFolderPath, "*.json", SearchOption.TopDirectoryOnly);
+                foreach (var jsonFile in jsonFiles)
                 {
-                    string projectRelativePath = buildInput.outputPath + "/" + bundleName;
-                    Debug.Log($"Size of AssetBundle {projectRelativePath} is {new FileInfo(projectRelativePath).Length}");
+                    string fileName = Path.GetFileName(jsonFile);
+                    string targetPath = Path.Combine(targetFolderPath, fileName);
+                    File.Copy(jsonFile, targetPath, true);
                 }
-            }
-            else
-            {
-                Debug.Log("Build failed, see Console and Editor log for details");
+                
+                EditorUtility.DisplayProgressBar("复制JSON文件到StreamingAssets", 
+                    $"复制语言文件: {languageCode}", (i + 1) / (float)totalLanguages);
             }
             
             EditorUtility.ClearProgressBar();
-
+            Debug.Log("JSON文件复制完成");
         }
         
         private void GenerateFromLocalizeDataFolder()
@@ -646,7 +628,7 @@ namespace U0UGames.Localization.Editor
             var languageCodeList = _localizationConfig.GetLanguageCodeList();
             if (languageCodeList == null || languageCodeList.Count == 0)
             {
-                ULog.LogError("没有配置任何语言");
+                Debug.LogError("没有配置任何语言");
                 return;
             }
 
@@ -654,13 +636,13 @@ namespace U0UGames.Localization.Editor
             AssetDatabase.Refresh();
         }
 
-        private void GenerateAssetBundles()
+        private void CopyJsonToStreamingAssets()
         {
-            if (!GUILayout.Button("将json文件打包为AseetBundles"))
+            if (!GUILayout.Button("将JSON文件复制到StreamingAssets"))
             {
                 return;
             }
-            JsonFileToAssetBundles();
+            CopyJsonFilesToStreamingAssets();
             AssetDatabase.Refresh();
         }
         
@@ -682,7 +664,7 @@ namespace U0UGames.Localization.Editor
             EditorGUILayout.Space(5);
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                GenerateAssetBundles();
+                CopyJsonToStreamingAssets();
                 EditorGUILayout.EndVertical();
             }
         }

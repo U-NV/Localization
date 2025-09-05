@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using U0UGames.Framework;
-using U0UGames.Framework.Utils;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -72,152 +70,20 @@ namespace U0UGames.Localization.Editor
                 }
             }
         }
-
-        // private int GetDataLanguageCodeIndex()
-        // {
-        //     var languageCodeIndex = _localizationConfig.originalLanguageCodeIndex;
-        //     if (languageCodeIndex < 0 || languageCodeIndex > _localizationConfig.languageDisplayDataList.Count)
-        //     {
-        //         EditorGUILayout.LabelField("Error:选择了无效的语言码, 请在配置界面中重新选择");
-        //         return -1;
-        //     }
-        //     return languageCodeIndex;
-        // }
-
-        // private string GetDataLanguageCode()
-        // {
-        //     var languageCodeIndex = GetDataLanguageCodeIndex();
-        //     if (languageCodeIndex < 0) return null;
-        //     return _localizationConfig.languageDisplayDataList[languageCodeIndex].languageCode;
-        // }
-        
-        private void UpdateOtherLanguage(string originLanguageCode)
-        {
-            if (!_localizationConfig)
-            {
-                _localizationConfig = LocalizationConfig.GetOrCreateLocalizationConfig();
-            }
-            
-            // 得到目标同步对象
-            var currVersionDataFileList = LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(originLanguageCode ,_localizationConfig.translateDataFolderRootPath);
-            if (currVersionDataFileList == null || currVersionDataFileList.Count == 0)
-            {
-                ULog.LogError("找不到任何需要同步的文件");
-                return;
-            }
-            
-            for (var index = 0; index < _localizationConfig._generateConfigList.Count; index++)
-            {
-                var generateConfig = _localizationConfig._generateConfigList[index];
-                var languageCode = generateConfig.languageCode;
-                EditorUtility.DisplayProgressBar("同步", $"尝试同步{languageCode}中数据", index / (float)_localizationConfig._generateConfigList.Count);
-                // 跳过当前语言
-                if (generateConfig.languageCode == originLanguageCode)
-                {
-                    continue;
-                }
-
-                var oldVersionDataFolderPath = generateConfig.dataFolderRootPath;
-                var oldVersionFileDataList =
-                    LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(generateConfig.languageCode,oldVersionDataFolderPath);
-                foreach (var currVersionFileData in currVersionDataFileList)
-                {
-                    // 查找有无同名翻译文件
-                    LocalizationDataUtils.LocalizationFileData sameNameOldVersionData = null;
-                    foreach (var oldVersionFileData in oldVersionFileDataList)
-                    {
-                        if (oldVersionFileData.fileName.StartsWith(currVersionFileData.fileName))
-                        {
-                            sameNameOldVersionData = oldVersionFileData;
-                            break;
-                        }
-                    }
-
-                    // 存在同名翻译文件，将同名翻译文件数据回填
-                    if (sameNameOldVersionData != null)
-                    {
-                        foreach (var oldFileDataLine in sameNameOldVersionData.dataList)
-                        {
-                            var lineDataKey = oldFileDataLine.key;
-                            if (!string.IsNullOrEmpty(lineDataKey) && currVersionFileData.TryGetFirstMatchDataByKey(lineDataKey, out var rawLineDataByKey))
-                            {
-                                var rawTranslateResult = rawLineDataByKey.translatedValues[languageCode];
-                                var oldTranslateResult = oldFileDataLine.translatedValues[languageCode];
-                                if (string.IsNullOrEmpty(rawTranslateResult) && !string.IsNullOrEmpty(oldTranslateResult))
-                                {
-                                    rawLineDataByKey.translatedValues[languageCode] =
-                                        oldFileDataLine.translatedValues[languageCode];
-                                }
-                            }
-                            else
-                            {
-                                var originText = oldFileDataLine.originalText;
-                                if(!string.IsNullOrEmpty(originText) && currVersionFileData.TryGetFirstMatchDataByKey(originText, out var rawLineDataByOriginText))
-                                {
-                                    var rawTranslateResult = rawLineDataByOriginText.translatedValues[languageCode];
-                                    var oldTranslateResult = oldFileDataLine.translatedValues[languageCode];
-                                    if (string.IsNullOrEmpty(rawTranslateResult) && !string.IsNullOrEmpty(oldTranslateResult))
-                                    {
-                                        rawLineDataByOriginText.translatedValues[languageCode] =
-                                            oldFileDataLine.translatedValues[languageCode];
-                                    }
-                                }
-                            }
-              
-                        }
-                    }
-                }
-
-            }
-
-            // 保存
-            var translateDataFolderFullPath = UnityPathUtility.RootFolderPathToFullPath(_localizationConfig.translateDataFolderRootPath);
-            if (!Directory.Exists(translateDataFolderFullPath))
-            {
-                Directory.CreateDirectory(translateDataFolderFullPath);
-            }
-
-            for (var index = 0; index < currVersionDataFileList.Count; index++)
-            {
-                var currVersionFileData = currVersionDataFileList[index];
-                LocalizationDataUtils.ConvertToExcelFile(currVersionFileData, translateDataFolderFullPath);
-                float progress = (float)index / (float)currVersionDataFileList.Count;
-                EditorUtility.DisplayProgressBar("同步", "保存同步后的语言", progress);
-            }
-            AssetDatabase.Refresh();
-            EditorUtility.ClearProgressBar();
-        }
-        
-        // 3. 将默认语言的本地化关键词增量添加到其他语言的本地化文件中
-        private void UpdateOtherLanguageLocalizationKey()
-        {
-            EditorGUILayout.BeginVertical();
-            EditorGUILayout.LabelField("同步旧版本数据", EditorStyles.boldLabel);
-
-            var languageCode = _localizationConfig.OriginalLanguageCode;
-            if (string.IsNullOrEmpty(languageCode))
-            {
-                EditorGUILayout.LabelField("未选择语言");
-                return;
-            }
-            
-            string info = $"同步旧版本的本地化数据";
-            if (GUILayout.Button(info))
-            {
-                EditorUtility.DisplayProgressBar("同步",info,0);
-                UpdateOtherLanguage(languageCode);
-                EditorUtility.ClearProgressBar();
-                AssetDatabase.Refresh();
-            }
-            EditorGUILayout.EndVertical();
-
-        }
-        
    
         private void AutoTranslate()
         {
+            if (!_localizationConfig.IsValid())
+            {
+                EditorGUILayout.LabelField("Error: 没有配置任何语言，请先在配置界面添加语言", EditorStyles.helpBox);
+                return;
+            }
+            
+
             EditorGUILayout.BeginVertical();
             EditorGUILayout.LabelField("翻译", EditorStyles.boldLabel);
+
+
 
             EditorGUILayout.BeginHorizontal();
             var originalLanguageCode = _localizationConfig.OriginalLanguageCode;
@@ -234,6 +100,8 @@ namespace U0UGames.Localization.Editor
             if (_translateToIndex < 0 || _translateToIndex >= allLanguageCodeList.Count)
             {
                 EditorGUILayout.LabelField("无效的语言");
+                EditorGUILayout.EndHorizontal();
+                EditorGUILayout.EndVertical();
                 return;
             }
             
@@ -283,6 +151,7 @@ namespace U0UGames.Localization.Editor
             if (string.IsNullOrEmpty(languageCode))
             {
                 EditorGUILayout.LabelField("未选择语言");
+                EditorGUILayout.EndVertical();
                 return;
             }
 
@@ -344,6 +213,13 @@ namespace U0UGames.Localization.Editor
         private const string AllCharFileName = "AllLocalizedText.txt";
         private void GetAllChar()
         {
+            var languageCode = _localizationConfig.OriginalLanguageCode;
+            if (string.IsNullOrEmpty(languageCode))
+            {
+                EditorGUILayout.LabelField("未选择语言");
+                return;
+            }
+
             EditorGUILayout.BeginVertical();
             EditorGUILayout.LabelField("获得所有文字", EditorStyles.boldLabel);
 
@@ -364,12 +240,7 @@ namespace U0UGames.Localization.Editor
             EditorGUILayout.EndHorizontal();
             
             
-            var languageCode = _localizationConfig.OriginalLanguageCode;
-            if (string.IsNullOrEmpty(languageCode))
-            {
-                EditorGUILayout.LabelField("未选择语言");
-                return;
-            }
+
             
             var allCharFileSaveFolderFullPath = Path.Join(Application.dataPath, LocalizationManager.LocalizationResourcesFolder);
             var folderAssetPath = UnityPathUtility.FullPathToAssetPath(allCharFileSaveFolderFullPath);
@@ -482,7 +353,7 @@ namespace U0UGames.Localization.Editor
             var translateDataList = LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(currLanguageCode, _localizationConfig.translateDataFolderRootPath);
             if (syncDataList == null || syncDataList.Count == 0)
             {
-                ULog.LogError("找不到任何可以同步的文件");
+                Debug.LogError("找不到任何可以同步的文件");
                 return;
             }
             var translateDataFolderFullPath = UnityPathUtility.RootFolderPathToFullPath(_localizationConfig.translateDataFolderRootPath);
@@ -580,6 +451,7 @@ namespace U0UGames.Localization.Editor
             if (string.IsNullOrEmpty(languageCode))
             {
                 EditorGUILayout.LabelField("未选择语言");
+                EditorGUILayout.EndVertical();
                 return;
             }
             
@@ -604,12 +476,7 @@ namespace U0UGames.Localization.Editor
                 StatisticsOriginData();
                 EditorGUILayout.EndVertical();
             }
-            EditorGUILayout.Separator();
-            {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                UpdateOtherLanguageLocalizationKey();
-                EditorGUILayout.EndVertical();
-            }
+
             EditorGUILayout.Separator();
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);

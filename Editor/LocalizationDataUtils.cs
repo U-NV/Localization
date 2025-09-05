@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using U0UGames.Framework;
-using U0UGames.Framework.Utils;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using OfficeOpenXml;
 using U0UGames.ExcelDataParser;
 using U0UGames.Localization.Editor.AutoTranslate;
@@ -329,7 +326,7 @@ namespace U0UGames.Localization.Editor
 
             if (!_localizationConfig)
             {
-                ULog.LogError("Localization config is not set");
+                Debug.LogError("Localization config is not set");
                 return null;
             }
 
@@ -719,7 +716,7 @@ namespace U0UGames.Localization.Editor
                             needTranslateTextList, needTranslateDataList);
                         if (!success)
                         {
-                            ULog.LogError($"翻译失败:{fileName} ({srcLanguageCode}翻译至{targetLanguageCode})");
+                            Debug.LogError($"翻译失败:{fileName} ({srcLanguageCode}翻译至{targetLanguageCode})");
                         }
                     }
                 }
@@ -829,7 +826,7 @@ namespace U0UGames.Localization.Editor
 
             if (!_localizationConfig)
             {
-                ULog.LogError("找不到LocalizationConfig");
+                Debug.LogError("找不到LocalizationConfig");
                 return;
             }
             var currLanguageCode = _localizationConfig.OriginalLanguageCode;
@@ -837,7 +834,7 @@ namespace U0UGames.Localization.Editor
             var getHeaderInfo = fileData.GetHeaderList(currLanguageCode,out var headerInfos);
             if (!getHeaderInfo)
             {
-                ULog.LogError($"无法得到{fileData.fileName}表头数据");
+                Debug.LogError($"无法得到{fileData.fileName}表头数据");
                 return;
             }
             
@@ -915,7 +912,7 @@ namespace U0UGames.Localization.Editor
 
             if (!_localizationConfig)
             {
-                ULog.LogError("找不到LocalizationConfig");
+                Debug.LogError("找不到LocalizationConfig");
                 return;
             }
 

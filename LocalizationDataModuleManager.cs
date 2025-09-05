@@ -30,18 +30,17 @@ namespace U0UGames.Localization
             _maxDynamicModuleCount = Config.MaxDynamicModuleCount;
         }
 
-        private AssetBundle _currLanguageAssetBundle;
-        private string _currLanguageName;
-        public void ChangeAssetBundle(AssetBundle newLanguageAsset,string languageCode)
+        private string _currLanguageCode;
+        public void ChangeLanguage(string languageCode)
         {
-            if (newLanguageAsset == null)
+            if (string.IsNullOrEmpty(languageCode))
             {
-                Debug.LogError("newLanguageAsset is null");
+                Debug.LogError("languageCode is null or empty");
                 return;
             }
 
             // 数据是相同，无需更新
-            if (_currLanguageAssetBundle == newLanguageAsset)
+            if (_currLanguageCode == languageCode)
             {
                 return;
             }
@@ -54,15 +53,8 @@ namespace U0UGames.Localization
             _dynamicLoadDataModuleList.Clear();
             DataModuleList.Clear();
             DataModuleLookup.Clear();
-            
-            // 卸载旧的数据包
-            if(_currLanguageAssetBundle!=null)
-            {
-                _currLanguageAssetBundle.UnloadAsync(true);
-            }
 
-            _currLanguageName = languageCode;
-            _currLanguageAssetBundle = newLanguageAsset;
+            _currLanguageCode = languageCode;
         }
         
         
@@ -71,20 +63,14 @@ namespace U0UGames.Localization
 
         public LocalizationDataModule TryLoadDataModule(string moduleName)
         {
-            if (!_currLanguageAssetBundle && !string.IsNullOrEmpty(_currLanguageName))
+            if (string.IsNullOrEmpty(_currLanguageCode))
             {
-                LocalizationManager.TryGetLanguageAssetBundle(_currLanguageName,out _currLanguageAssetBundle);
-            }
-            
-            if (!_currLanguageAssetBundle)
-            {
-                Debug.LogError("找不到本地化AssetBundle");
+                Debug.LogError("当前语言代码为空");
                 return null;
             }
 
             // 如果缓存中存在所需模块，直接返回
-            if (DataModuleLookup.TryGetValue(moduleName, out var existModule)
-                && existModule.LanguageAssetBundle == _currLanguageAssetBundle)
+            if (DataModuleLookup.TryGetValue(moduleName, out var existModule))
             {
                 return existModule;
             }
@@ -96,7 +82,7 @@ namespace U0UGames.Localization
                 UnloadDataModule(existModule);
             }
             // 创建新的空模块
-            LocalizationDataModule module = new LocalizationDataModule(moduleName,_currLanguageAssetBundle);
+            LocalizationDataModule module = new LocalizationDataModule(moduleName, _currLanguageCode);
             DataModuleList.Add(module);
             DataModuleLookup[moduleName] = module;
             module.LoadData();

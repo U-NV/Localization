@@ -26,23 +26,79 @@ namespace U0UGames.Localization
             var config = AssetDatabase.LoadAssetAtPath<LocalizationConfig>(LocalizationConfigAssetPath);
             if (config == null)
             {
+                // 确保Resources目录存在
+                EnsureDirectoryExists("Assets/Resources");
+                
                 config = ScriptableObject.CreateInstance<LocalizationConfig>();
+                
+                // 初始化默认值，避免索引越界
+                InitializeDefaultValues(config);
+                
                 AssetDatabase.CreateAsset(config, LocalizationConfigAssetPath);
                 AssetDatabase.SaveAssetIfDirty(config);
             }
             return config;
         }
-#endif
-
-        [System.Serializable]
-        public class GenerateConfig
+        
+        /// <summary>
+        /// 初始化配置的默认值
+        /// </summary>
+        private static void InitializeDefaultValues(LocalizationConfig config)
         {
-            public string languageCode;
-            [FormerlySerializedAs("dataFolderPath")] [FormerlySerializedAs("dataFolderAssetPath")] public string dataFolderRootPath;
+            // 初始化语言列表
+            if (config.languageDisplayDataList == null || config.languageDisplayDataList.Count == 0)
+            {
+                config.languageDisplayDataList = new List<LanguageConfig>
+                {
+                    new LanguageConfig { languageCode = "zh-cn", displayName = "简体中文" },
+                    new LanguageConfig { languageCode = "en", displayName = "English" }
+                };
+            }
+            
+            // 确保索引有效
+            if (config.originalLanguageCodeIndex < 0 || config.originalLanguageCodeIndex >= config.languageDisplayDataList.Count)
+            {
+                config.originalLanguageCodeIndex = 0; // 默认选择第一个语言
+            }
+            
+            // 初始化其他默认值
+            if (config.defaultModuleNames == null)
+            {
+                config.defaultModuleNames = new List<string>();
+            }
+            
+            if (config.inGameLanguageCodeList == null)
+            {
+                config.inGameLanguageCodeList = new List<string>();
+            }
         }
         
+        /// <summary>
+        /// 确保目录存在，如果不存在则创建
+        /// </summary>
+        private static void EnsureDirectoryExists(string directoryPath)
+        {
+            if (AssetDatabase.IsValidFolder(directoryPath))
+                return;
+                
+            // 分割路径并逐级创建目录
+            string[] pathParts = directoryPath.Split('/');
+            string currentPath = pathParts[0]; // "Assets"
+            
+            for (int i = 1; i < pathParts.Length; i++)
+            {
+                string nextPath = currentPath + "/" + pathParts[i];
+                if (!AssetDatabase.IsValidFolder(nextPath))
+                {
+                    AssetDatabase.CreateFolder(currentPath, pathParts[i]);
+                }
+                currentPath = nextPath;
+            }
+        }
+#endif
+        
         [System.Serializable]
-        public class LanguageDisplayData
+        public class LanguageConfig
         {
             public string languageCode;
             public string displayName;
@@ -58,26 +114,20 @@ namespace U0UGames.Localization
         {
             get
             {
-                try
-                {
-                    return languageDisplayDataList[originalLanguageCodeIndex].languageCode;
-                }
-                catch
+                if (originalLanguageCodeIndex < 0 || originalLanguageCodeIndex >= languageDisplayDataList.Count)
                 {
                     return null;
                 }
+                return languageDisplayDataList[originalLanguageCodeIndex].languageCode;
             }
         }
         public string excelDataFolderRootPath;
         public string translateDataFolderRootPath;
-        public List<LanguageDisplayData> languageDisplayDataList = new List<LanguageDisplayData>();
+        public List<LanguageConfig> languageDisplayDataList = new List<LanguageConfig>();
         public List<string> defaultModuleNames = new List<string>();
 
         [FormerlySerializedAs("languageCodeList")] 
         public List<string> inGameLanguageCodeList = new List<string>();
-        
-        
-        public List<GenerateConfig> _generateConfigList = new List<GenerateConfig>();
 
         private List<string> _languageCodeList = new List<string>();
         public List<string> GetLanguageCodeList()
@@ -91,10 +141,30 @@ namespace U0UGames.Localization
             return _languageCodeList;
         }
         
-        // public List<string> allExistModuleNames = new List<string>();
-        public GenerateConfig _GetGenerateConfig(string languageCode)
+        /// <summary>
+        /// 检查配置是否有效
+        /// </summary>
+        public bool IsValid()
         {
-            foreach (var generateConfig in _generateConfigList)
+            return languageDisplayDataList != null && languageDisplayDataList.Count > 0;
+        }
+        
+        /// <summary>
+        /// 获取有效的语言代码列表，如果配置无效则返回空列表
+        /// </summary>
+        public List<string> GetValidLanguageCodeList()
+        {
+            if (!IsValid())
+            {
+                return new List<string>();
+            }
+            return GetLanguageCodeList();
+        }
+        
+        // public List<string> allExistModuleNames = new List<string>();
+        public LanguageConfig _GetGenerateConfig(string languageCode)
+        {
+            foreach (var generateConfig in languageDisplayDataList)
             {
                 if (generateConfig.languageCode == languageCode)
                 {

@@ -11,9 +11,7 @@ namespace U0UGames.Localization
     {
         private string _name;
         public string Name => _name;
-        private AssetBundle _languageAssetBundle;
-        public AssetBundle LanguageAssetBundle => _languageAssetBundle;
-        private TextAsset _jsonTextAsset;
+        private string _languageCode;
         private List<Object> _activeAssetList = new List<Object>();
         private Dictionary<string, UnityEngine.Object> _activeAssetLookup = new Dictionary<string, Object>();
 
@@ -23,10 +21,10 @@ namespace U0UGames.Localization
         private float _lastUseTime = 0;
         public float LastUseTime => _lastUseTime;
         
-        public LocalizationDataModule(string name,AssetBundle languageAssetBundle)
+        public LocalizationDataModule(string name, string languageCode)
         {
             _name = name;
-            _languageAssetBundle = languageAssetBundle;
+            _languageCode = languageCode;
         }
 
         private bool _haveLoadData = false;
@@ -37,16 +35,30 @@ namespace U0UGames.Localization
             _activeAssetLookup.Clear();
             _dictLookup.Clear();
             
-            if (_languageAssetBundle == null)
+            if (string.IsNullOrEmpty(_languageCode))
             {
-                Debug.LogWarning($"本地化模块{_name}, 中数据包为空");
+                Debug.LogWarning($"本地化模块{_name}, 语言代码为空");
                 return false;
             }
             
-            TextAsset jsonAsset = null;
+            // 直接从StreamingAssetsPath读取JSON文件
+            string jsonPath = Path.Combine(
+                Application.streamingAssetsPath,
+                LocalizationManager.LocalizationResourcesFolder,
+                _languageCode,
+                $"{_name}.json"
+            );
+            
+            if (!File.Exists(jsonPath))
+            {
+                Debug.LogError($"找不到本地化文件: {jsonPath}");
+                return false;
+            }
+            
+            string jsonText = null;
             try
             {
-                jsonAsset = _languageAssetBundle.LoadAsset<TextAsset>(_name);
+                jsonText = File.ReadAllText(jsonPath);
             }
             catch (Exception e)
             {
@@ -54,18 +66,16 @@ namespace U0UGames.Localization
                 return false;
             }
 
-            // 如果找不到json数据，或者加载失败，释放已经加载了的资源
-            if (jsonAsset == null)
+            if (string.IsNullOrEmpty(jsonText))
             {
-                Debug.LogError($"找不到本地化模块json数据文件：{_name}");
+                Debug.LogError($"本地化文件为空: {jsonPath}");
                 return false;
             }
             
-            _jsonTextAsset = jsonAsset;
-            var textLookup = JsonConvert.DeserializeObject<Dictionary<string, string>>(_jsonTextAsset.text);
+            var textLookup = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonText);
             if (textLookup == null || textLookup.Count == 0)
             {
-                Debug.Log("无法解析本地化模块 " + _jsonTextAsset.name);
+                Debug.LogError($"无法解析本地化模块: {_name}");
                 return false;
             }
             
@@ -98,7 +108,7 @@ namespace U0UGames.Localization
             _haveLoadData = false;
             _dictLookup.Clear();
             
-            if (_activeAssetList.Count>0)
+            if (_activeAssetList.Count > 0)
             {
                 foreach (var asset in _activeAssetList)
                 {
@@ -107,14 +117,7 @@ namespace U0UGames.Localization
                 _activeAssetList.Clear();
             }
             
-            if (_languageAssetBundle != null && _jsonTextAsset != null)
-            {
-                _languageAssetBundle.Unload(_jsonTextAsset);
-            }
-            else
-            {
-                Debug.LogWarning($"本地化模块{_name} AssetBundle卸载失败, 中数据包为空");
-            }
+            _activeAssetLookup.Clear();
 
             Debug.Log("Unload Localize Data Module: " + Name);
         }

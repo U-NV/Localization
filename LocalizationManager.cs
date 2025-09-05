@@ -1,18 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using UnityEngine;
-using U0UGames.Framework.EventManager;
 
 using Object = UnityEngine.Object;
 
 namespace U0UGames.Localization
 {
-    public class LocalizeLanguageChangeEvent:GameEvent{
-    
-    }
     public static class LocalizationManager
     {
+        public static event Action<string> OnLanguageChanged;
         public const string LocalizationResourcesFolder = "Localization";
         public const string LocalizationConfigFileName = @"LocalizationConfig";
         
@@ -57,14 +55,28 @@ namespace U0UGames.Localization
 
         // 数据
         private static readonly LocalizationDataModuleManager DataModuleManager = new LocalizationDataModuleManager();
+        
+        // 字符串优化（移除缓存，因为大部分key只查询一次）
+        private static readonly StringBuilder _stringBuilder = new StringBuilder(256);
+        
+        /// <summary>
+        /// 获取翻译文本（无缓存版本，适用于大部分key只查询一次的场景）
+        /// </summary>
         public static string GetText(string textKey)
         {
-            DataModuleManager.TryGetText(textKey,out var result);
+            if (string.IsNullOrEmpty(textKey))
+                return string.Empty;
+                
+            // 直接获取翻译结果，无缓存开销
+            DataModuleManager.TryGetText(textKey, out var result);
             return result;
         }
 
         public static string GetTextWithArg(string textKey, params object[] args)
         {
+            if (string.IsNullOrEmpty(textKey))
+                return string.Empty;
+                
             // 如果找不到关键词对应的翻译，直接返回默认结果
             if(!DataModuleManager.TryGetText(textKey,out var result))
             {
@@ -74,13 +86,25 @@ namespace U0UGames.Localization
             // 找到则尝试添加参数
             try
             {
-                result = string.Format(result, args);
+                // 使用StringBuilder优化字符串拼接
+                _stringBuilder.Clear();
+                _stringBuilder.AppendFormat(result, args);
+                return _stringBuilder.ToString();
             }
-            catch
+            catch (Exception ex)
             {
-                return $"{result}:{args}";
+                // 改进错误处理，记录具体错误信息
+                Debug.LogWarning($"格式化字符串失败: {textKey}, 错误: {ex.Message}");
+                _stringBuilder.Clear();
+                _stringBuilder.Append(result);
+                _stringBuilder.Append(":");
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (i > 0) _stringBuilder.Append(",");
+                    _stringBuilder.Append(args[i]?.ToString() ?? "null");
+                }
+                return _stringBuilder.ToString();
             }
-            return result;
         }
         public static Sprite GetSprite(string textKey) => DataModuleManager.GetSprite(textKey);
         public static T GetObject<T>(string textKey) where T:UnityEngine.Object => DataModuleManager.GetObject<T>(textKey);
@@ -111,6 +135,14 @@ namespace U0UGames.Localization
         }
         public static void ProcessLocalizeKey(string input, out string prefix, out string key)
         {
+            if (string.IsNullOrEmpty(input))
+            {
+                prefix = null;
+                key = null;
+                return;
+            }
+            
+            // 直接解析，无缓存开销（因为大部分key只解析一次）
             int lastIndex = input.LastIndexOf(".", StringComparison.Ordinal);
             if (lastIndex > 0)
             {
@@ -167,34 +199,20 @@ namespace U0UGames.Localization
             return recommendLanguageCode;
         }
         
-        private static readonly LocalizeLanguageChangeEvent LocalizeLanguageChangeEvent = new LocalizeLanguageChangeEvent();
-        
-        public static bool TryGetLanguageAssetBundle(string languageCode, out AssetBundle assetBundle)
+        public static bool TryGetLanguagePath(string languageCode, out string languagePath)
         {
-            // 尝试找到
             languageCode = languageCode.ToLower();
-            var allBundles = AssetBundle.GetAllLoadedAssetBundles();
-            foreach (var exitBundle in allBundles)
-            {
-                if (exitBundle.name == languageCode)
-                {
-                    assetBundle = exitBundle;
-                    return true;
-                }
-            }
-            // 尝试加载
             string outputPath = Path.Combine(Application.streamingAssetsPath, 
                 LocalizationManager.LocalizationResourcesFolder, languageCode);
             
-            var bundle = AssetBundle.LoadFromFile(outputPath);
-            if (bundle != null)
+            if (Directory.Exists(outputPath))
             {
-                assetBundle = bundle;
+                languagePath = outputPath;
                 return true;
             }
             
-            Debug.LogError($"找不到语言类型{languageCode} 对应的数据包");
-            assetBundle = null;
+            Debug.LogError($"找不到语言类型{languageCode} 对应的文件夹");
+            languagePath = null;
             return false;
         }
         
@@ -208,17 +226,19 @@ namespace U0UGames.Localization
             }
             
             _currLanguageCode = languageCode;
-            if (!TryGetLanguageAssetBundle(_currLanguageCode, out var assetBound))
+            if (!TryGetLanguagePath(_currLanguageCode, out var languagePath))
             {
                 return;
             }
 
-            Object.DontDestroyOnLoad(assetBound);
-            DataModuleManager.ChangeAssetBundle(assetBound, languageCode);
+            DataModuleManager.ChangeLanguage(languageCode);
             DataModuleManager.LoadDataModule(Config.defaultModuleNames);
             DataModuleManager.LoadDataModule(textModules);
-            EventManager.Broadcast(LocalizeLanguageChangeEvent);
+  
+            // 触发语言切换事件
+            OnLanguageChanged?.Invoke(languageCode);
         }
+    
 
     }
 }

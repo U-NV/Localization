@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using U0UGames.Framework.Utils;
 using UnityEditor;
 using UnityEngine;
 
@@ -71,6 +70,12 @@ namespace U0UGames.Localization.Editor
             }
             
             {
+                if (!_localizationConfig.IsValid())
+                {
+                    EditorGUILayout.LabelField("Error: 没有配置任何语言，请先添加语言配置", EditorStyles.helpBox);
+                    return;
+                }
+                
                 EditorGUILayout.BeginHorizontal();
                 
                 var enableLanguageCodeList = new List<string>(_localizationConfig.languageDisplayDataList.Count+1);
@@ -92,134 +97,29 @@ namespace U0UGames.Localization.Editor
             }
         }
 
-
-        // private string _filter;
-        // private int _selectModuleNameIndex;
-        // private void SelectDefaultModules()
-        // {
-        //     EditorGUILayout.BeginVertical();
-        //     List<string> modulesList = _localizationConfig.defaultModuleNames;
-        //     
-        //     
-        //     _isDefaultModulesEditorPanelFoldout = EditorGUILayout.Foldout(_isDefaultModulesEditorPanelFoldout, "默认模块名");
-        //     EditorPrefs.SetBool(EditorPrefsKey.ModuleNamesFoldout, _isDefaultModulesEditorPanelFoldout);
-        //
-        //     if (_isDefaultModulesEditorPanelFoldout)
-        //     {
-        //         // EditorGUI.indentLevel++;
-        //         EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-        //         for (int i = 0; i < modulesList.Count; i++) 
-        //         {
-        //             EditorGUILayout.BeginHorizontal();
-        //             GUI.enabled = false;
-        //             modulesList[i] = EditorGUILayout.TextField(modulesList[i]);
-        //             GUI.enabled = true;
-        //
-        //             bool stopDrawing = false;
-        //             if (GUILayout.Button("-", GUILayout.Width(20))) 
-        //             {
-        //                 modulesList.RemoveAt(i);
-        //                 stopDrawing = true;
-        //             }
-        //             EditorGUILayout.EndHorizontal();
-        //
-        //             if (stopDrawing)
-        //             {
-        //                 break;
-        //             }
-        //         }
-        //         {
-        //             EditorGUILayout.BeginHorizontal();
-        //             {
-        //                 var allModuleNames = _localizationConfig.allExistModuleNames;
-        //                 GUI.enabled = false;
-        //                 if (allModuleNames != null && allModuleNames.Count > 0)
-        //                 {
-        //                     GUI.enabled = true;
-        //                 }
-        //
-        //                 string newModuleName = null;
-        //                 if (allModuleNames != null )
-        //                 {
-        //                     _filter = EditorGUILayout.TextField(_filter, EditorStyles.toolbarSearchField);
-        //                     string[] filteredModuleOptions;
-        //                     if (string.IsNullOrEmpty(_filter))
-        //                     {
-        //                         filteredModuleOptions = allModuleNames.ToArray();
-        //                     }
-        //                     else
-        //                     {
-        //                         filteredModuleOptions = allModuleNames.Where(option => option.ToLower().Contains(_filter.ToLower())).ToArray();
-        //                     }
-        //
-        //                     if (filteredModuleOptions.Length > 0)
-        //                     {
-        //                         _selectModuleNameIndex = EditorGUILayout.Popup(_selectModuleNameIndex, filteredModuleOptions);
-        //                         if (_selectModuleNameIndex >= 0)
-        //                         {
-        //                             newModuleName = filteredModuleOptions[_selectModuleNameIndex];
-        //                         }
-        //                     }
-        //                     else
-        //                     {
-        //                         EditorGUILayout.Popup(-1, filteredModuleOptions);
-        //                     }
-        //                 }
-        //                 
-        //                 if (GUILayout.Button("+",GUILayout.Width(20))) 
-        //                 {
-        //                     if (!string.IsNullOrEmpty(newModuleName) 
-        //                         && allModuleNames.Contains(newModuleName) 
-        //                         && !modulesList.Contains(newModuleName))
-        //                     {
-        //                         modulesList.Add(newModuleName);
-        //                     }
-        //                 }
-        //                 GUI.enabled = true;
-        //             }
-        //             EditorGUILayout.EndHorizontal();
-        //         }
-        //         EditorGUILayout.EndVertical();
-        //     }
-        //
-        //     
-        //     EditorGUILayout.EndVertical();
-        // }
-        
+        private Vector2 _generateConfigScrollPos;
         private void ShowGenerateConfigView()
         {
-            var configList = _localizationConfig._generateConfigList;
+            var configList = _localizationConfig.languageDisplayDataList;
+
             EditorGUILayout.BeginVertical();
-            
-            _isGenerateConfigPanelFoldout = EditorGUILayout.Foldout(_isGenerateConfigPanelFoldout, "[!弃用!]本地化数据文件夹");
+
+            _isGenerateConfigPanelFoldout = EditorGUILayout.Foldout(_isGenerateConfigPanelFoldout, "语言配置");
             EditorPrefs.SetBool(EditorPrefsKey.GenerateConfigFoldout, _isGenerateConfigPanelFoldout);
 
             if (_isGenerateConfigPanelFoldout)
             {
                 // EditorGUI.indentLevel++;
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                _generateConfigScrollPos = EditorGUILayout.BeginScrollView(_generateConfigScrollPos, EditorStyles.helpBox);
 
                 for (int i = 0; i < configList.Count; i++) 
                 {                
-                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+                    EditorGUILayout.BeginVertical();
+                    configList[i].languageCode = EditorGUILayout.TextField("语言码:",configList[i].languageCode);
+                    configList[i].displayName = EditorGUILayout.TextField("显示名称:",configList[i].displayName);
+                    EditorGUILayout.EndVertical();
 
-                    configList[i].languageCode = EditorGUILayout.TextField(configList[i].languageCode,GUILayout.Width(60));
-
-                    string openFolderPath = configList[i].dataFolderRootPath;
-                    string buttonText = configList[i].dataFolderRootPath;
-                    if (string.IsNullOrEmpty(configList[i].dataFolderRootPath))
-                    {
-                        buttonText = "选择数据文件夹";
-                        openFolderPath = Application.dataPath;
-                    }
-                    if (GUILayout.Button(buttonText))
-                    {
-                        string selectFolderPath = EditorUtility.OpenFolderPanel("选择数据文件夹", openFolderPath, null);
-                        if (!string.IsNullOrEmpty(selectFolderPath))
-                        {
-                            configList[i].dataFolderRootPath = UnityPathUtility.FullPathToRootFolderPath(selectFolderPath);
-                        }
-                    }
                     bool stopDrawing = false;
                     if (GUILayout.Button("-", GUILayout.Width(20))) 
                     {
@@ -227,23 +127,23 @@ namespace U0UGames.Localization.Editor
                         stopDrawing = true;
                     }
                     EditorGUILayout.EndHorizontal();
+
                     if (stopDrawing)
                     {
                         break;
                     }
                 }
+                EditorGUILayout.EndScrollView();
 
                 EditorGUILayout.BeginHorizontal();
                 {
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("+",GUILayout.Width(20))) 
+                    if (GUILayout.Button("+")) 
                     {
-                        configList.Add(new LocalizationConfig.GenerateConfig());
+                        configList.Add(new LocalizationConfig.LanguageConfig());
                     }
                 }
                 EditorGUILayout.EndHorizontal();
                 
-                EditorGUILayout.EndVertical();
                 // EditorGUI.indentLevel--;
             }
             EditorGUILayout.EndVertical();
@@ -252,6 +152,7 @@ namespace U0UGames.Localization.Editor
          private void ShowLanguageCodeView()
         {
             var languageCodeList = _localizationConfig.inGameLanguageCodeList;
+            
             var enableLanguageCodeList = new List<string>(_localizationConfig.languageDisplayDataList.Count+1);
             // enableLanguageCodeList.Add("None");
             foreach (var generateConfig in _localizationConfig.languageDisplayDataList)
@@ -267,23 +168,30 @@ namespace U0UGames.Localization.Editor
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 {
                     EditorGUILayout.BeginVertical();
-                    for (int i = 0; i < languageCodeList.Count; i++) 
-                    {                
-                        EditorGUILayout.BeginHorizontal();
-                        GUI.enabled = false;
-                        EditorGUILayout.TextField(languageCodeList[i]);
-                        GUI.enabled = true;
-                        bool stopDrawing = false;
-                        if (GUILayout.Button("-", GUILayout.Width(20))) 
-                        {
-                            languageCodeList.RemoveAt(i);
-                            stopDrawing = true;
-                        }
-                        EditorGUILayout.EndHorizontal();
+                    if(languageCodeList == null || languageCodeList.Count == 0)
+                    {
+                        EditorGUILayout.LabelField("暂无语言");
+                    }
+                    else
+                    {
+                        for (int i = 0; i < languageCodeList.Count; i++) 
+                        {                
+                            EditorGUILayout.BeginHorizontal();
+                            GUI.enabled = false;
+                            EditorGUILayout.TextField(languageCodeList[i]);
+                            GUI.enabled = true;
+                            bool stopDrawing = false;
+                            if (GUILayout.Button("-", GUILayout.Width(20))) 
+                            {
+                                languageCodeList.RemoveAt(i);
+                                stopDrawing = true;
+                            }
+                            EditorGUILayout.EndHorizontal();
 
-                        if (stopDrawing)
-                        {
-                            break;
+                            if (stopDrawing)
+                            {
+                                break;
+                            }
                         }
                     }
                     EditorGUILayout.EndVertical();
@@ -316,53 +224,6 @@ namespace U0UGames.Localization.Editor
             }
             EditorGUILayout.EndVertical();
         }
-
-         private void ShowLanguageDisplayNameView()
-         {
-            var enableLanguageCodeList = new List<string>(_localizationConfig.languageDisplayDataList.Count+1);
-            foreach (var generateConfig in _localizationConfig.languageDisplayDataList)
-            {
-                enableLanguageCodeList.Add(generateConfig.languageCode);
-            }
-            EditorGUILayout.BeginVertical();
-            _isLanguageDisplayNamePanelFoldout = EditorGUILayout.Foldout(_isLanguageDisplayNamePanelFoldout, "语言显示名称");
-            EditorPrefs.SetBool(EditorPrefsKey.LanguageDisplayNameFoldout, _isLanguageDisplayNamePanelFoldout);
-
-            var displayDataList = _localizationConfig.languageDisplayDataList;
-            if (displayDataList == null || displayDataList.Count != enableLanguageCodeList.Count)
-            {
-                _localizationConfig.languageDisplayDataList = new List<LocalizationConfig.LanguageDisplayData>(enableLanguageCodeList.Count);
-                displayDataList = _localizationConfig.languageDisplayDataList;
-                foreach (var code in enableLanguageCodeList)
-                {
-                    displayDataList.Add(new LocalizationConfig.LanguageDisplayData()
-                    {
-                        languageCode = code,
-                        displayName = code,
-                    });
-                }
-            }
-            
-            if (_isLanguageDisplayNamePanelFoldout)
-            {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                {
-                    EditorGUILayout.BeginVertical();
-                    for (int i = 0; i < displayDataList.Count; i++) 
-                    {                
-                        EditorGUILayout.BeginHorizontal();
-                        GUI.enabled = false;
-                        EditorGUILayout.TextField(displayDataList[i].languageCode);
-                        GUI.enabled = true;
-                        displayDataList[i].displayName = EditorGUILayout.TextField(displayDataList[i].displayName);
-                        EditorGUILayout.EndHorizontal();
-                    }
-                    EditorGUILayout.EndVertical();
-                }
-                EditorGUILayout.EndVertical();
-            }
-            EditorGUILayout.EndVertical();
-         }
          
         public void OnGUI()
         {
@@ -375,20 +236,15 @@ namespace U0UGames.Localization.Editor
                 ShowChooseLanguage();
                 EditorGUILayout.EndVertical();
             }
+            EditorGUILayout.EndVertical();
             
-            // GUILayout.Space(5);
-            // SelectDefaultModules();
-
-            GUILayout.Space(5);
-            ShowLanguageDisplayNameView();
             GUILayout.Space(5);
             ShowLanguageCodeView();
-            EditorGUILayout.EndVertical();
 
-            GUILayout.Space(15);
+            GUILayout.Space(5);
             
             
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginVertical();
             ShowGenerateConfigView();
             EditorGUILayout.EndVertical();
             
