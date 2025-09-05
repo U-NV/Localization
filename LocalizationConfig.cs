@@ -173,11 +173,9 @@ namespace U0UGames.Localization
             }
             return null;
         }
-        public static string GetJsonDataFullPath(string languageCode, string moduleName)
-        {
-            return Path.Combine(
-                LocalizationManager.GetJsonFolderFullPath(languageCode),
-                $"{moduleName}.json");
-        }
+
+        public string translateApiKey;
+        public string translateApiUrl;
+        public string translateAIPrompt;
     }
 }

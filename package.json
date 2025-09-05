@@ -1,8 +1,8 @@
 {
   "name": "com.u0ugames.localization",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "displayName": "U0UGames Localization System",
-  "description": "A comprehensive localization system for Unity projects with AssetBundle support, dynamic module loading, and multi-language management.",
+  "description": "A comprehensive localization system for Unity projects with AssetBundle support, dynamic module loading, multi-language management, and AI-powered translation capabilities.",
   "unity": "2021.3",
   "keywords": [
     "localization",
@@ -10,11 +10,15 @@
     "multilingual",
     "assetbundle",
     "translation",
-    "language"
+    "language",
+    "ai-translation",
+    "deepseek",
+    "openai"
   ],
   "author": {
-    "name": "U0UGames",
-    "email": "support@u0ugames.com"
+    "name": "U-NV",
+    "email": "haowei1117@foxmail.com",
+    "url": "https://github.com/U-NV"
   },
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.0.2"
@@ -28,11 +32,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/U0UGames/Unity-Localization-System.git"
+    "url": "https://github.com/U-NV/Localization.git"
   },
   "license": "MIT",
-  "homepage": "https://github.com/U0UGames/Unity-Localization-System",
+  "homepage": "https://github.com/U-NV/Localization",
   "bugs": {
-    "url": "https://github.com/U0UGames/Unity-Localization-System/issues"
+    "url": "https://github.com/U-NV/Localization/issues"
   }
 }

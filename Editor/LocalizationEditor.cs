@@ -18,6 +18,7 @@ namespace U0UGames.Localization.Editor
         private LocalizationConfigEditorWindow _configEditorWindow = new LocalizationConfigEditorWindow();
         private LocalizationNewFileGenerateWindow _fileGenerateWindow = new LocalizationNewFileGenerateWindow();
         private LocalizationDataProcessWindow _toolsWindow = new LocalizationDataProcessWindow();
+        private LocalizationTranslateWindow _translateWindow = new LocalizationTranslateWindow();
 
         
         [MenuItem("工具/本地化")]
@@ -38,12 +39,13 @@ namespace U0UGames.Localization.Editor
             _fileGenerateWindow.Init();
             _configEditorWindow.Init();
             _toolsWindow.Init();
+            _translateWindow.Init();
         }
         
         private int _mode = 0;
         private string[] toolBarOption = new string[]
         {
-            "配置","生成","辅助工具"
+            "配置","生成","翻译","辅助工具"
         };
         void OnGUI()
         {
@@ -60,7 +62,12 @@ namespace U0UGames.Localization.Editor
                     _fileGenerateWindow.OnGUI();
                     break;
                 case 2:
+                    _translateWindow.OnGUI();
+
+                    break;
+                case 3:
                     _toolsWindow.OnGUI();
+
                     break;
                 default:
                     break;

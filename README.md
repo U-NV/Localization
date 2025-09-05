@@ -11,6 +11,7 @@
 - 🎨 **UI组件支持** - 内置Text、Image、Sprite等UI组件的本地化支持
 - ⚡ **高性能** - 优化的数据结构和查找算法
 - 🛠️ **编辑器工具** - 完整的编辑器工具链，支持Excel数据导入和配置管理
+- 🤖 **AI智能翻译** - 集成AI翻译API，支持批量自动翻译，提高本地化效率
 
 ## 📦 安装
 
@@ -21,7 +22,7 @@
 3. 选择"Add package from git URL"
 4. 输入以下URL：
    ```
-   https://github.com/U0UGames/Unity-Localization-System.git
+   https://github.com/U-NV/Localization.git
    ```
 
 ### 通过本地包安装
@@ -147,19 +148,27 @@ StreamingAssets/
 
 ## 🛠️ 编辑器工具
 
-### 本地化配置窗口
+### 本地化编辑器窗口
 
-通过菜单 `Window > U0UGames > Localization Config` 打开配置窗口，可以：
+通过菜单 `工具/本地化` 打开本地化编辑器窗口，该窗口包含四个功能标签页：
 
+#### 配置标签页
 - 管理支持的语言列表
 - 配置默认模块
 - 设置AssetBundle路径
 - 管理Excel数据导入
 
-### 数据生成工具
+#### 生成标签页
+- 创建新的本地化文件
+- 管理本地化数据结构
 
-通过菜单 `Window > U0UGames > Localization Data Process` 打开数据处理窗口，可以：
+#### 翻译标签页
+- 配置AI翻译API（支持DeepSeek等主流AI服务）
+- 批量翻译文本到目标语言
+- 自定义翻译提示词，优化翻译质量
+- 支持一键翻译所有语言
 
+#### 辅助工具标签页
 - 从Excel导入本地化数据
 - 生成AssetBundle
 - 验证数据完整性
@@ -193,6 +202,67 @@ private void OnLanguageChanged(LocalizeLanguageChangeEvent evt)
     // 处理语言切换逻辑
 }
 ```
+
+## 🤖 AI智能翻译
+
+### 配置AI翻译服务
+
+1. **获取API密钥**
+   - 注册并获取AI服务API密钥（推荐使用DeepSeek、OpenAI等）
+   - 确保账户有足够的API调用额度
+
+2. **配置API设置**
+   ```csharp
+   // 在LocalizationConfig中配置
+   config.translateApiKey = "your-api-key-here";
+   config.translateApiUrl = "https://api.deepseek.com"; // 或其他AI服务URL
+   ```
+
+3. **自定义翻译提示词**
+   ```csharp
+   // 可以自定义AI翻译的提示词，优化翻译质量
+   config.translateAIPrompt = "请保持游戏文本的简洁性和可读性，确保翻译准确自然。";
+   ```
+
+### 使用AI翻译功能
+
+1. **打开翻译窗口**
+   - 菜单：`工具/本地化`，然后切换到"翻译"标签页
+
+2. **选择翻译目标语言**
+   - 从下拉列表中选择要翻译到的目标语言
+   - 系统会自动从原始语言翻译到目标语言
+
+3. **执行翻译**
+   - **单语言翻译**：点击"翻译"按钮翻译到选定的语言
+   - **批量翻译**：点击"翻译所有语言"按钮，一次性翻译到所有配置的语言
+
+### 翻译质量优化
+
+1. **提示词优化**
+   - 根据项目特点自定义翻译提示词
+   - 可以指定游戏类型、风格要求等
+
+2. **分批翻译**
+   - 对于大量文本，建议分批进行翻译
+   - 系统支持重试机制，网络异常时会自动重试
+
+3. **翻译结果验证**
+   - 翻译完成后建议人工检查关键文本
+   - 可以针对特定文本进行二次翻译优化
+
+### 支持的AI服务
+
+- **DeepSeek** - 推荐使用，性价比高
+- **OpenAI GPT** - 翻译质量优秀
+- **其他兼容OpenAI API格式的服务**
+
+### 注意事项
+
+- 确保网络连接稳定，翻译过程需要网络请求
+- API调用可能产生费用，请注意使用量
+- 翻译质量取决于AI服务的能力和提示词设置
+- 建议对重要文本进行人工校对
 
 ## 🔧 高级用法
 
@@ -233,6 +303,13 @@ DataModuleManager.UnloadDataModule("OldModule");
    - 确认在Editor文件夹中
    - 检查依赖项是否完整
 
+4. **AI翻译功能问题**
+   - 检查API密钥是否正确配置
+   - 确认API URL格式正确（如：https://api.deepseek.com）
+   - 验证网络连接和API服务状态
+   - 检查API账户余额和调用限制
+   - 查看Unity Console中的详细错误信息
+
 ## 📄 许可证
 
 本项目采用MIT许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
@@ -246,10 +323,18 @@ DataModuleManager.UnloadDataModule("OldModule");
 如果您遇到问题或有任何建议，请：
 
 1. 查看[常见问题](#故障排除)
-2. 提交[Issue](https://github.com/U0UGames/Unity-Localization-System/issues)
+2. 提交[Issue](https://github.com/U-NV/Localization/issues)
 3. 联系支持邮箱：support@u0ugames.com
 
 ## 📈 更新日志
+
+### v1.1.0
+- ✨ 新增AI智能翻译功能
+- 🤖 支持DeepSeek、OpenAI等主流AI服务
+- 🔄 批量翻译和一键翻译所有语言
+- ⚙️ 自定义翻译提示词优化
+- 🛠️ 完善的错误处理和重试机制
+- 📝 更新文档和API说明
 
 ### v1.0.0
 - 初始版本发布

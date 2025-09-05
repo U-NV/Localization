@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using OfficeOpenXml;
 using U0UGames.ExcelDataParser;
-using U0UGames.Localization.Editor.AutoTranslate;
 using UnityEditor;
 using UnityEngine;
 
@@ -625,111 +624,7 @@ namespace U0UGames.Localization.Editor
             return GetFileData(currLanguage, valueLanguageCode, fullPath);
         }
 
-        private static string[] Translate(string from, string to, string[] textList)
-        {
-            return BatchV3DemoInternalTest.Translate(from, to, textList);
-        }
-
-        private static bool TranslateInter(string srcLanguageCode, string targetLanguageCode, List<string> needTranslateTextList,List<LocalizeLineData> needTranslateDataList)
-        {
-            var translateResult = Translate(srcLanguageCode, targetLanguageCode,
-                needTranslateTextList.ToArray());
-            if (translateResult != null)
-            {
-                for (int i = 0; i < needTranslateDataList.Count; i++)
-                {
-                    needTranslateDataList[i].translatedValues[targetLanguageCode] = translateResult[i];
-                    var oldTips = needTranslateDataList[i].tips;
-                    if(string.IsNullOrEmpty(oldTips) || !oldTips.Contains("YDT"))
-                        needTranslateDataList[i].tips = oldTips + "YDT";
-                }
-
-                return true;
-            }
-
-            return false;
-        }
-        
-        public const int MaxTextSize = 4500;
-        public static void Translate(string srcLanguageCode, string targetLanguageCode)
-        {
-            if (!_localizationConfig)
-            {
-                _localizationConfig = LocalizationConfig.GetOrCreateLocalizationConfig();
-            }
-
-            if (_localizationConfig == null)
-            {
-                Debug.LogWarning("Localization config not initialized.");
-                return;
-            }
-            
-            var currLocalizationFileDataList = 
-                LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(srcLanguageCode,_localizationConfig.translateDataFolderRootPath);
-            var translateDataFolderFullPath = UnityPathUtility.RootFolderPathToFullPath(_localizationConfig.translateDataFolderRootPath);
-            if (!Directory.Exists(translateDataFolderFullPath))
-            {
-                Directory.CreateDirectory(translateDataFolderFullPath);
-            }
-
-            if(currLocalizationFileDataList == null || currLocalizationFileDataList.Count == 0)return;
-            foreach (var fileData in currLocalizationFileDataList)
-            {
-                var fileName = fileData.fileName;
-
-                int totalIndex = 0;
-                while (totalIndex < fileData.dataList.Count)
-                {
-                    EditorUtility.DisplayProgressBar($"将{srcLanguageCode}翻译至{targetLanguageCode}",$"正在翻译{fileName}",totalIndex/(float)fileData.dataList.Count);
-
-                    int textSize = 0;
-                    List<LocalizeLineData> needTranslateDataList = new List<LocalizeLineData>();
-                    List<string> needTranslateTextList = new List<string>();
-                    
-                    // 收集翻译数据包
-                    for (var startIndex = totalIndex; startIndex < fileData.dataList.Count; startIndex++)
-                    {
-                        var kvpData = fileData.dataList[startIndex];
-                        // 只翻译没有翻译过且游戏内正在使用的文本，即翻译文本为空，原文不为空，关键词不为空
-                        var key = kvpData.key;
-                        var originalText = kvpData.translatedValues[srcLanguageCode];
-                        var targetText = kvpData.translatedValues[targetLanguageCode];
-                        if (!string.IsNullOrEmpty(key) && string.IsNullOrEmpty(targetText) && !string.IsNullOrEmpty(originalText))
-                        {
-                            var newTextLength = originalText.Length;
-                            var newDataSize = textSize + newTextLength;
-                            if (newDataSize > MaxTextSize)
-                            {
-                                break;
-                            }
-                            textSize += newTextLength;
-                            needTranslateDataList.Add(kvpData);
-                            needTranslateTextList.Add(originalText);
-                        }
-                        totalIndex++;
-                    }
-
-                    // 将收集到的数据提交翻译
-                    if (textSize <= MaxTextSize && textSize>=0 && needTranslateTextList.Count > 0)
-                    {
-                        bool success = TranslateInter(srcLanguageCode, targetLanguageCode,
-                            needTranslateTextList, needTranslateDataList);
-                        if (!success)
-                        {
-                            Debug.LogError($"翻译失败:{fileName} ({srcLanguageCode}翻译至{targetLanguageCode})");
-                        }
-                    }
-                }
-
-                LocalizationDataUtils.ConvertToExcelFile(
-                    fileData,
-                    translateDataFolderFullPath
-                );
-
-            }
-            
-            EditorUtility.ClearProgressBar();
-        }
+      
         
         // public static string GetLocalizationDataFileName(string languageCode, string rawDataFileName)
         // {

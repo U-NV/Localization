@@ -23,7 +23,6 @@ namespace U0UGames.Localization.Editor
                 "LocalizationDataProcessWindow.NeedClearAllFilesBeforeSync";
             public const string AdditionalTextFilePath = 
                 "LocalizationDataProcessWindow.AdditionalTextFilePath";
-            public const string TranslateToIndex = "LocalizationDataProcessWindow.TranslateToIndex";
 
         }
 
@@ -31,7 +30,6 @@ namespace U0UGames.Localization.Editor
         private LocalizationConfig _localizationConfig;
         // private bool _needClearAllFilesBeforeGenerate = false;
         private bool _needClearAllFilesBeforeSync = false;
-        private int _translateToIndex = 1;
 
         private string _additionalTextFileAssetPath = "";
         // private int _dataProcessBarModeIndex = 0;
@@ -46,9 +44,6 @@ namespace U0UGames.Localization.Editor
             
             _needClearAllFilesBeforeSync = 
                 EditorPrefs.GetBool(EditorPrefsKey.NeedClearAllFilesBeforeSync);
-            
-            _translateToIndex = 
-                EditorPrefs.GetInt(EditorPrefsKey.TranslateToIndex);
             
             _additionalTextFileAssetPath = EditorPrefs.GetString(EditorPrefsKey.AdditionalTextFilePath);
         }
@@ -71,66 +66,7 @@ namespace U0UGames.Localization.Editor
             }
         }
    
-        private void AutoTranslate()
-        {
-            if (!_localizationConfig.IsValid())
-            {
-                EditorGUILayout.LabelField("Error: 没有配置任何语言，请先在配置界面添加语言", EditorStyles.helpBox);
-                return;
-            }
-            
 
-            EditorGUILayout.BeginVertical();
-            EditorGUILayout.LabelField("翻译", EditorStyles.boldLabel);
-
-
-
-            EditorGUILayout.BeginHorizontal();
-            var originalLanguageCode = _localizationConfig.OriginalLanguageCode;
-            
-            EditorGUILayout.LabelField($"将{originalLanguageCode}翻译为");
-
-            var allLanguageCodeList = new List<string>(_localizationConfig.languageDisplayDataList.Count+1);
-            foreach (var generateConfig in _localizationConfig.languageDisplayDataList)
-            {
-                allLanguageCodeList.Add(generateConfig.languageCode);
-            }
-            _translateToIndex = EditorGUILayout.Popup(_translateToIndex, 
-                allLanguageCodeList.ToArray());
-            if (_translateToIndex < 0 || _translateToIndex >= allLanguageCodeList.Count)
-            {
-                EditorGUILayout.LabelField("无效的语言");
-                EditorGUILayout.EndHorizontal();
-                EditorGUILayout.EndVertical();
-                return;
-            }
-            
-            EditorPrefs.SetInt(EditorPrefsKey.TranslateToIndex,_translateToIndex);
-            var selectedLanguageCode = allLanguageCodeList[_translateToIndex];
-            
-            EditorGUILayout.EndHorizontal();
-            {
-                if (GUILayout.Button("翻译"))
-                {
-                    if(selectedLanguageCode == originalLanguageCode)return;
-                    LocalizationDataUtils.Translate(originalLanguageCode, selectedLanguageCode);
-                }
-            }
-            {
-                if (GUILayout.Button("翻译所有语言"))
-                {
-                    foreach (var otherLanguageCode in allLanguageCodeList)
-                    {
-                        if(otherLanguageCode == originalLanguageCode)continue;
-                        LocalizationDataUtils.Translate(originalLanguageCode, otherLanguageCode);
-                    }
-                }
-            }
-
-            
-            EditorGUILayout.EndVertical();
-
-        }
         
         
 
@@ -487,12 +423,6 @@ namespace U0UGames.Localization.Editor
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 GetAllChar();
-                EditorGUILayout.EndVertical();
-            }
-            EditorGUILayout.Separator();
-            {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                AutoTranslate();
                 EditorGUILayout.EndVertical();
             }
             EditorGUILayout.EndVertical();
