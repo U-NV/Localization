@@ -15,6 +15,14 @@
 
 ## 📦 安装
 
+### ⚠️ 重要提示
+**本插件依赖 ExcelDataParser 包，请先安装依赖包：**
+
+1. 在Unity编辑器中打开 `Window > Package Manager`
+2. 点击左上角的 `+` 按钮，选择 `Add package from git URL`
+3. 输入：`https://github.com/U-NV/ExcelDataParser.git`
+4. 点击 `Add` 完成依赖包安装
+
 ### 通过Git URL安装
 
 1. 打开Unity Package Manager
