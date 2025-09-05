@@ -42,7 +42,7 @@ namespace U0UGames.Localization
             }
             
             // 直接从StreamingAssetsPath读取JSON文件
-            string jsonPath = LocalizationManager.GetJsonFolderFullPath(_languageCode);
+            string jsonPath = LocalizationManager.GetJsonDataFullPath(_languageCode, _name);
             
             
             if (!File.Exists(jsonPath))
