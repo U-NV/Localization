@@ -59,6 +59,18 @@ namespace U0UGames.Localization
         // 字符串优化（移除缓存，因为大部分key只查询一次）
         private static readonly StringBuilder _stringBuilder = new StringBuilder(256);
         
+        public static string GetJsonFolderFullPath(string languageCode)
+        {
+            return Path.Combine(Application.streamingAssetsPath, 
+                LocalizationManager.LocalizationResourcesFolder, languageCode);
+        }
+        public static string GetJsonDataFullPath(string languageCode, string moduleName)
+        {
+            return Path.Combine(
+                LocalizationManager.GetJsonFolderFullPath(languageCode),
+                $"{moduleName}.json");
+        }
+
         /// <summary>
         /// 获取翻译文本（无缓存版本，适用于大部分key只查询一次的场景）
         /// </summary>

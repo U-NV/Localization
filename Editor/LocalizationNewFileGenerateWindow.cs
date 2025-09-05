@@ -474,7 +474,7 @@ namespace U0UGames.Localization.Editor
                 foreach (var kvp in languageKvpLookup)
                 {
                     var languageCode = kvp.Key;
-                    string fullPath = LocalizationConfig.GetJsonDataFullPath(languageCode, moduleName);
+                    string fullPath = LocalizationManager.GetJsonDataFullPath(languageCode, moduleName);
                     var jsonFile = JsonConvert.SerializeObject(kvp.Value, Formatting.Indented);
                     SaveFile(fullPath, jsonFile,ImportAssetOptions.ForceUpdate);
                 }
@@ -526,8 +526,7 @@ namespace U0UGames.Localization.Editor
                     EditorGUILayout.BeginHorizontal();
                     EditorGUILayout.LabelField(languageCode,GUILayout.Width(40));
                     EditorGUILayout.LabelField("|",GUILayout.Width(5));
-                    var resultPath =
-                        $@"Assets\{LocalizationManager.LocalizationResourcesFolder}\{languageCode}";
+                    var resultPath = LocalizationManager.GetJsonFolderFullPath(languageCode);
                     if (GUILayout.Button(resultPath,GUILayout.MinWidth(300)))
                     {
                         Object obj = AssetDatabase.LoadMainAssetAtPath(resultPath);
@@ -554,7 +553,7 @@ namespace U0UGames.Localization.Editor
             _jsonDataModuleLookup.Clear();
             foreach (var languageCode in languageCodeList)
             {
-                string folderPath = LocalizationConfig.GetJsonFileFolderFullPath(languageCode);
+                string folderPath = LocalizationManager.GetJsonFolderFullPath(languageCode);
                 UnityPathUtility.DeleteAllFile(folderPath,false);
             }
             // 统计json模块数据
@@ -578,45 +577,6 @@ namespace U0UGames.Localization.Editor
             
             EditorUtility.ClearProgressBar();
         }
-
-        private void CopyJsonFilesToStreamingAssets()
-        {
-            EditorUtility.DisplayProgressBar("复制JSON文件到StreamingAssets", "复制JSON文件到StreamingAssets", 0);
-
-            var languageCodeList = _localizationConfig.GetLanguageCodeList();
-            string streamingAssetsPath = Path.Combine(Application.streamingAssetsPath, 
-                LocalizationManager.LocalizationResourcesFolder);
-            
-            if (!Directory.Exists(streamingAssetsPath))
-                Directory.CreateDirectory(streamingAssetsPath);
-
-            int totalLanguages = languageCodeList.Count;
-            for (int i = 0; i < totalLanguages; i++)
-            {
-                var languageCode = languageCodeList[i];
-                string sourceFolderPath = LocalizationConfig.GetJsonFileFolderFullPath(languageCode);
-                string targetFolderPath = Path.Combine(streamingAssetsPath, languageCode);
-                
-                // 确保目标文件夹存在
-                if (!Directory.Exists(targetFolderPath))
-                    Directory.CreateDirectory(targetFolderPath);
-                
-                // 复制所有JSON文件
-                var jsonFiles = Directory.EnumerateFiles(sourceFolderPath, "*.json", SearchOption.TopDirectoryOnly);
-                foreach (var jsonFile in jsonFiles)
-                {
-                    string fileName = Path.GetFileName(jsonFile);
-                    string targetPath = Path.Combine(targetFolderPath, fileName);
-                    File.Copy(jsonFile, targetPath, true);
-                }
-                
-                EditorUtility.DisplayProgressBar("复制JSON文件到StreamingAssets", 
-                    $"复制语言文件: {languageCode}", (i + 1) / (float)totalLanguages);
-            }
-            
-            EditorUtility.ClearProgressBar();
-            Debug.Log("JSON文件复制完成");
-        }
         
         private void GenerateFromLocalizeDataFolder()
         {
@@ -635,16 +595,6 @@ namespace U0UGames.Localization.Editor
             GenerateJsonFiles();
             AssetDatabase.Refresh();
         }
-
-        private void CopyJsonToStreamingAssets()
-        {
-            if (!GUILayout.Button("将JSON文件复制到StreamingAssets"))
-            {
-                return;
-            }
-            CopyJsonFilesToStreamingAssets();
-            AssetDatabase.Refresh();
-        }
         
         public void OnGUI()
         {
@@ -658,13 +608,6 @@ namespace U0UGames.Localization.Editor
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 GenerateFromLocalizeDataFolder();
-                EditorGUILayout.EndVertical();
-            }
-            
-            EditorGUILayout.Space(5);
-            {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                CopyJsonToStreamingAssets();
                 EditorGUILayout.EndVertical();
             }
         }

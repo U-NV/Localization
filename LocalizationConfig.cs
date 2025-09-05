@@ -173,17 +173,10 @@ namespace U0UGames.Localization
             }
             return null;
         }
-
-        public static string GetJsonFileFolderFullPath(string languageCode)
-        {
-            return Path.Combine(Application.dataPath,
-                LocalizationManager.LocalizationResourcesFolder,
-                languageCode);
-        }
         public static string GetJsonDataFullPath(string languageCode, string moduleName)
         {
             return Path.Combine(
-                GetJsonFileFolderFullPath(languageCode),
+                LocalizationManager.GetJsonFolderFullPath(languageCode),
                 $"{moduleName}.json");
         }
     }
