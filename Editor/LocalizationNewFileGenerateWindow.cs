@@ -464,6 +464,12 @@ namespace U0UGames.Localization.Editor
                 string folderPath = Path.GetDirectoryName(path);
                 if (folderPath!=null && !Directory.Exists(folderPath))
                 {
+                    // 如果出现了重名的文件，先删除这个文件，否则无法创建同名文件夹
+                    if (File.Exists(folderPath))
+                    {
+                        File.Delete(folderPath);
+                    }
+                    Debug.Log($"CreateFolder:{folderPath}");
                     Directory.CreateDirectory(folderPath);
                 }
                 File.WriteAllText(path, info);

@@ -75,12 +75,6 @@ namespace U0UGames.Localization
                 return existModule;
             }
             
-            // 不存在则创建新的本地化模块
-            // 先卸载旧的模块
-            if (existModule != null)
-            {
-                UnloadDataModule(existModule);
-            }
             // 创建新的空模块
             LocalizationDataModule module = new LocalizationDataModule(moduleName, _currLanguageCode);
             DataModuleList.Add(module);
@@ -122,7 +116,7 @@ namespace U0UGames.Localization
                 UnloadDataModule(name);
             }
         }
-        // private int _maxDynamicModuleCount = 10;
+        
         private List<LocalizationDataModule> _dynamicLoadDataModuleList = new List<LocalizationDataModule>();
         private void RemoveOldestDynamicModule()
         {
