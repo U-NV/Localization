@@ -42,18 +42,18 @@ namespace U0UGames.Localization.Editor
     public static class LocalizationDataUtils
     {
         public const string LocalizeDataClassName = "LocalizeData";
-        public const string LocalizeDataKeyName = "key";
-        public const string LocalizeDataValueName = "value";
+        public const string LocalizeDataKeyName = "lKey";
+        public const string LocalizeDataValueName = "lValue";
 
-        public const string LocalizeDataTips1 = "tips";
+        public const string LocalizeDataTips1 = "lTips1";
+        public const string LocalizeDataTips2 = "lTips2";
 
-        public const string LocalizationKeyName = "localizationKey";
-        public const string LocalizationValueName = "localizationValue";
+
         public const string OriginalTextName = "originalText";
-        public const string AuthorsNote = "Author's note";
-        public const string TranslatorsNote = "Translator's note";
-        public const string Proofread = "proofread";
-        public const string LocalizationTips1 = "localizationTips1";
+        // public const string AuthorsNote = "Author's note";
+        // public const string TranslatorsNote = "Translator's note";
+        // public const string Proofread = "proofread";
+        // public const string LocalizationTips1 = "localizationTips1";
 
         public class LocalizeLineData
         {
@@ -61,7 +61,8 @@ namespace U0UGames.Localization.Editor
             public Dictionary<string, string> translatedValues = new Dictionary<string, string>();
             public Dictionary<string, string> translateDataAllValues = new Dictionary<string, string>();
 
-            public string tips;
+            public string tips1;
+            public string tips2;
 
             // 用于同步旧数据
             public string originalText;
@@ -70,7 +71,8 @@ namespace U0UGames.Localization.Editor
             public bool IsEmpty()
             {
                 var emptyKey = string.IsNullOrEmpty(key);
-                var emptyTips = string.IsNullOrEmpty(tips);
+                var emptyTips1 = string.IsNullOrEmpty(tips1);
+                var emptyTips2 = string.IsNullOrEmpty(tips2);
                 var emptyTranslateValue = true;
                 if (translatedValues != null && translatedValues.Count > 0)
                 {
@@ -84,7 +86,7 @@ namespace U0UGames.Localization.Editor
                     }
                 }
 
-                return emptyKey && emptyTips && emptyTranslateValue;
+                return emptyKey && emptyTips1 && emptyTips2 && emptyTranslateValue;
             }
 
             public LocalizeLineData Clone()
@@ -98,7 +100,8 @@ namespace U0UGames.Localization.Editor
                 return new LocalizeLineData()
                 {
                     key = key,
-                    tips = tips,
+                    tips1 = tips1,
+                    tips2 = tips2,
                     translatedValues = valuesClone,
                 };
             }
@@ -168,11 +171,11 @@ namespace U0UGames.Localization.Editor
                 
                 headerInfos.Add(new FileHeaderInfo()
                 {
-                    valueName = LocalizationKeyName,
+                    valueName = LocalizeDataKeyName,
                     valueType = "string",
                     width = 20
                 });
-                headerList.Add(LocalizationKeyName);
+                headerList.Add(LocalizeDataValueName);
                 
                 
                 headerInfos.Add(new FileHeaderInfo()
@@ -312,9 +315,7 @@ namespace U0UGames.Localization.Editor
 
         private static LocalizeLineData GetLocalizeData(
             Dictionary<string, object> rawData,
-            string valueLanguageCode,
-            string keyName = LocalizeDataKeyName,
-            string valueName = LocalizeDataValueName)
+            string valueLanguageCode)
         {
             if (rawData == null) return null;
 
@@ -331,7 +332,7 @@ namespace U0UGames.Localization.Editor
 
             var currLanguageCode = _localizationConfig.OriginalLanguageCode;
             var kvpData = new LocalizeLineData();
-            TryGetStringValue(rawData, keyName, out kvpData.key);
+            TryGetStringValue(rawData, LocalizeDataKeyName, out kvpData.key);
 
 
 
@@ -345,7 +346,7 @@ namespace U0UGames.Localization.Editor
             }
 
             // 如果指定了语言
-            TryGetStringValue(rawData, valueName, out string originalTextByValue);
+            TryGetStringValue(rawData, LocalizeDataValueName, out string originalTextByValue);
             if (originalTextByValue != null)
             {
                 kvpData.translatedValues[valueLanguageCode] = originalTextByValue;
@@ -358,24 +359,13 @@ namespace U0UGames.Localization.Editor
             }
 
             {
-                string result = "";
-                if (TryGetStringValue(rawData, LocalizeDataTips1, out var defaultTips1))
+                if (TryGetStringValue(rawData, LocalizeDataTips1, out var tips1))
                 {
-                    result += defaultTips1;
+                    kvpData.tips1 = tips1;
                 }
-
-                if (string.IsNullOrEmpty(defaultTips1) && TryGetStringValue(rawData, LocalizationTips1, out var tips1))
+                if (TryGetStringValue(rawData, LocalizeDataTips1, out var tips2))
                 {
-                    result += tips1;
-                }
-
-                if (!string.IsNullOrEmpty(result))
-                {
-                    kvpData.tips = result;
-                }
-                else
-                {
-                    TryGetStringValue(rawData, AuthorsNote, out kvpData.tips);
+                    kvpData.tips2 = tips2;
                 }
             }
 
@@ -468,8 +458,7 @@ namespace U0UGames.Localization.Editor
             List<LocalizeLineData> dataList = new List<LocalizeLineData>();
             // 先添加行中符合关键词的内容
             {
-                LocalizeLineData rootKvpData = GetLocalizeData(rawDataLine, valueLanguageCode,
-                    LocalizationKeyName, LocalizationValueName);
+                LocalizeLineData rootKvpData = GetLocalizeData(rawDataLine, valueLanguageCode);
                 if (rootKvpData != null && !rootKvpData.IsEmpty())
                 {
                     dataList.Add(rootKvpData);
@@ -754,14 +743,20 @@ namespace U0UGames.Localization.Editor
                     for (var index = 0; index < headerInfos.Count; index++)
                     {
                         var valueName = headerInfos[index].valueName;
-                        if (valueName == LocalizationKeyName)
+                        if (valueName == LocalizeDataKeyName)
                         {
                             worksheet.Cells[lineIndex, index+1].Value = lineData.key;
                             continue;
                         }
                         if (valueName == LocalizeDataTips1)
                         {
-                            worksheet.Cells[lineIndex, index+1].Value = lineData.tips;
+                            worksheet.Cells[lineIndex, index+1].Value = lineData.tips1;
+                            worksheet.Cells[lineIndex, index+1].Style.WrapText = true;
+                            continue;
+                        }
+                        if (valueName == LocalizeDataTips2)
+                        {
+                            worksheet.Cells[lineIndex, index+1].Value = lineData.tips2;
                             worksheet.Cells[lineIndex, index+1].Style.WrapText = true;
                             continue;
                         }
@@ -825,20 +820,25 @@ namespace U0UGames.Localization.Editor
                 worksheet.Cells[2, 1].Value = "#type";
                 worksheet.Column(1).Width = 10; 
                 
-                worksheet.Cells[1, 2].Value = LocalizationKeyName;
+                worksheet.Cells[1, 2].Value = LocalizeDataKeyName;
                 worksheet.Cells[2, 2].Value = "string";
                 worksheet.Column(2).Width = 20;
 
                 worksheet.Cells[1, 3].Value = LocalizeDataTips1;
                 worksheet.Cells[2, 3].Value = "string";
                 worksheet.Column(3).Width = 20;
-                
-                worksheet.Cells[1, 4].Value = currLanguageCode;
+
+                worksheet.Cells[1, 4].Value = LocalizeDataTips2;
                 worksheet.Cells[2, 4].Value = "string";
-                worksheet.Column(4).Width = 50;
-                languageStartCollIndex[currLanguageCode] = 4;
+                worksheet.Column(3).Width = 20;
+
                 
-                int startIndex = 5;
+                worksheet.Cells[1, 5].Value = currLanguageCode;
+                worksheet.Cells[2, 5].Value = "string";
+                worksheet.Column(4).Width = 50;
+                languageStartCollIndex[currLanguageCode] = 5;
+                
+                int startIndex = 6;
                 foreach (var languageData in _localizationConfig.languageDisplayDataList)
                 {
                     var languageCode = languageData.languageCode;
@@ -861,7 +861,8 @@ namespace U0UGames.Localization.Editor
                     //     continue;
                     // }
                     worksheet.Cells[lineIndex, 2].Value = lineData.key;
-                    worksheet.Cells[lineIndex, 3].Value = lineData.tips;
+                    worksheet.Cells[lineIndex, 3].Value = lineData.tips1;
+                    worksheet.Cells[lineIndex, 4].Value = lineData.tips2;
                     foreach (var langData in _localizationConfig.languageDisplayDataList)
                     {
                         var langCode = langData.languageCode;

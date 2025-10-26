@@ -435,9 +435,9 @@ namespace U0UGames.Localization.Editor
                     var translatedText = translateResult[i];
                     
                     needTranslateDataList[i].translatedValues[targetLanguageCode] = translatedText;
-                    var oldTips = needTranslateDataList[i].tips;
+                    var oldTips = needTranslateDataList[i].tips2;
                     if(string.IsNullOrEmpty(oldTips) || !oldTips.Contains("AI"))
-                        needTranslateDataList[i].tips = oldTips + "AI";
+                        needTranslateDataList[i].tips2 = oldTips + "AI";
                     
                     // 验证数据是否正确更新
                     if (i < 3) // 只打印前3条作为示例

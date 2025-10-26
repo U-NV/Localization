@@ -5,17 +5,17 @@ namespace U0UGames.Localization
     [System.Serializable]
     public class LocalizeData
     {
-        public string key;
+        public string lKey;
         [Obsolete]
-        public string value;
+        public string lValue;
 
         private LocalizeString _localizeString;
         public LocalizeString LocalizeString
         {
             get
             {
-                if (_localizeString != null && _localizeString.localizationKey == key) return _localizeString;
-                _localizeString = new LocalizeString(key);
+                if (_localizeString != null && _localizeString.localizationKey == lKey) return _localizeString;
+                _localizeString = new LocalizeString(lKey);
                 return _localizeString;
             }
         }
