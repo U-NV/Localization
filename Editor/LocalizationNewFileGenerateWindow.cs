@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
-using OfficeOpenXml.Drawing.Chart;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Settings;
 
 namespace U0UGames.Localization.Editor
 {
@@ -256,6 +257,9 @@ namespace U0UGames.Localization.Editor
 
         private void SaveExcelChangeInfoList(string folderName)
         {
+            if(!_localizationConfig.saveExportDiffFile){
+                return;
+            }
             if (!Directory.Exists(folderName))
             {
                 return;
@@ -310,7 +314,7 @@ namespace U0UGames.Localization.Editor
                 if (!rawExcelFileData.IsValid())
                 {
                     string errorInfo = $"文件[{rawExcelFileData.fileName}]中找不到任何有效的数据，跳过此文件的导出工作。";
-                    EditorUtility.DisplayDialog("错误", errorInfo, "确认");
+                    // EditorUtility.DisplayDialog("错误", errorInfo, "确认");
                     Debug.LogError(errorInfo);
                     continue;
                 }
@@ -409,6 +413,8 @@ namespace U0UGames.Localization.Editor
             ShowConfig("翻译表格路径:",_localizationConfig.translateDataFolderRootPath);
             ShowConfig("原文语言:",currLanguageCode);
             
+            _localizationConfig.saveExportDiffFile = EditorGUILayout.Toggle("保存导出差异文件", _localizationConfig.saveExportDiffFile);
+
             {
                 GUI.enabled = true;
                 string buttonText = "导出翻译表格";
@@ -454,12 +460,7 @@ namespace U0UGames.Localization.Editor
                 }
                 translateLookup[key] = value;
             }
-            private string GetAssetPath(string fullPath)
-            {
-                string tempPath = Path.GetRelativePath(Application.dataPath, fullPath);
-                return Path.Combine("Assets", tempPath);
-            }
-            private void SaveFile(string path, string info,ImportAssetOptions options = ImportAssetOptions.Default )
+            private void SaveFile(string path, string info)
             {
                 string folderPath = Path.GetDirectoryName(path);
                 if (folderPath!=null && !Directory.Exists(folderPath))
@@ -473,7 +474,6 @@ namespace U0UGames.Localization.Editor
                     Directory.CreateDirectory(folderPath);
                 }
                 File.WriteAllText(path, info);
-                // AssetDatabase.ImportAsset(GetAssetPath(folderPath), options);
             }
             public void SaveJsonFile()
             {
@@ -482,9 +482,15 @@ namespace U0UGames.Localization.Editor
                     var languageCode = kvp.Key;
                     string fullPath = LocalizationManager.GetJsonDataFullPath(languageCode, moduleName);
                     var jsonFile = JsonConvert.SerializeObject(kvp.Value, Formatting.Indented);
-                    SaveFile(fullPath, jsonFile,ImportAssetOptions.ForceUpdate);
-                }
 
+
+                    SaveFile(fullPath, jsonFile);
+
+
+
+                    LocalizationAddressableHelper.SetJsonAddressable(fullPath, languageCode, moduleName);
+                }
+                AssetDatabase.SaveAssets();
             }
         }
 
@@ -548,6 +554,37 @@ namespace U0UGames.Localization.Editor
             }
         }
 
+        public static void BuildAddressables()
+        {
+            AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
+            if (settings == null){
+                Debug.LogError("AddressableAssetSettings is null");
+                return;
+            } 
+
+            // 1. 找到"打包模式"的构建器 (BuildScriptPackedMode)
+            // 只有这个模式会生成真正的 .bundle 文件
+            var packedModeBuilder = settings.DataBuilders
+                .FirstOrDefault(b => b.GetType().Name.Contains("BuildScriptPackedMode"));
+
+            if (packedModeBuilder != null)
+            {
+                int buildIndex = settings.DataBuilders.IndexOf(packedModeBuilder);
+                settings.ActivePlayerDataBuilderIndex = buildIndex;
+                
+                Debug.Log($"[Addressables] 已设置构建器索引: Player={buildIndex}");
+                
+                // 2. 清理旧缓存并执行构建
+                AddressableAssetSettings.CleanPlayerContent();
+                AddressableAssetSettings.BuildPlayerContent();
+                
+                Debug.Log("[Addressables] 物理 Bundle 构建完成！");
+            }
+            else
+            {
+                Debug.LogError("[Addressables] 未找到 BuildScriptPackedMode 构建器！请检查 Addressables 配置。");
+            }
+        }
         private void GenerateJsonFiles()
         {
             EditorUtility.DisplayProgressBar("导出Json文件", "导出Json文件", 0);
@@ -580,7 +617,8 @@ namespace U0UGames.Localization.Editor
                 jsonModule.SaveJsonFile();
                 EditorUtility.DisplayProgressBar("导出Json文件", $"导出Json文件:{jsonModule.moduleName}", i/(float)moduleCount);
             }
-            
+            AssetDatabase.SaveAssets();
+            BuildAddressables();
             EditorUtility.ClearProgressBar();
         }
         

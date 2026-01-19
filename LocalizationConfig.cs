@@ -2,6 +2,9 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Serialization;
+using System;
+
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -104,6 +107,9 @@ namespace U0UGames.Localization
             public string displayName;
         }
 
+        [SerializeField] private LocalizationGlossary _glossary;
+        public LocalizationGlossary Glossary =>_glossary;
+
         [SerializeField] private int _maxDynamicModuleCount;
         public int MaxDynamicModuleCount=>_maxDynamicModuleCount;
         
@@ -174,8 +180,16 @@ namespace U0UGames.Localization
             return null;
         }
 
+        public void SetGlossary(LocalizationGlossary tempGlossary)
+        {
+            _glossary = tempGlossary;
+        }
+
+
         public string translateApiKey;
         public string translateApiUrl;
         public string translateAIPrompt;
+        public bool saveExportDiffFile;
+
     }
 }

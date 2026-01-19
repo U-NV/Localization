@@ -7,7 +7,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using OfficeOpenXml.Drawing.Chart;
 using UnityEditor;
 using UnityEngine;
 using static U0UGames.Localization.Editor.LocalizationDataUtils;

@@ -230,6 +230,19 @@ namespace U0UGames.Localization.Editor
             EditorGUILayout.Separator();
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
+
+            {
+
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                LocalizationGlossary tempGlossary = (LocalizationGlossary)EditorGUILayout.ObjectField("名词术语表", _localizationConfig.Glossary, typeof(LocalizationGlossary), false);
+                if(tempGlossary != null && tempGlossary != _localizationConfig.Glossary){
+                    _localizationConfig.SetGlossary(tempGlossary);
+                    EditorUtility.SetDirty(_localizationConfig);
+                    AssetDatabase.SaveAssetIfDirty(_localizationConfig);
+                }
+
+                EditorGUILayout.EndVertical();
+            }
             
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);

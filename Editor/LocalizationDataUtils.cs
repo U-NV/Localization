@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using OfficeOpenXml;
 using U0UGames.ExcelDataParser;
 using UnityEditor;
 using UnityEngine;
@@ -175,7 +174,7 @@ namespace U0UGames.Localization.Editor
                     valueType = "string",
                     width = 20
                 });
-                headerList.Add(LocalizeDataValueName);
+                headerList.Add(LocalizeDataKeyName);
                 
                 
                 headerInfos.Add(new FileHeaderInfo()
@@ -632,33 +631,24 @@ namespace U0UGames.Localization.Editor
         private static readonly int ExcelDataLineStartIndex = 3;
         public static void ConvertChangeInfoToExcelFile(Dictionary<string,List<ExcelLineChangeInfo>> changeInfoList, string fileName, string folderPath)
         {
+            // ExcelWriter.
+            var excelData = new ExcelWriter.ExcelData();
+
             // 创建ExcelPackage对象
-            using (ExcelPackage package = new ExcelPackage())
-            {
-                // 添加一个工作表
-                ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Sheet1");
+            // using (ExcelPackage package = new ExcelPackage())
+            // {
+            //     // 添加一个工作表
+            //     ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Sheet1");
                 
                 // 设置单元格的值
-                worksheet.Cells[1, 1].Value = "文件名称";
-                worksheet.Column(1).Width = 10; 
+                excelData[1, 1] = "文件名称";
 
-                worksheet.Cells[1, 2].Value = "行数";
-                worksheet.Column(2).Width = 10; 
-                
-                worksheet.Cells[1, 3].Value = "关键词";
-                worksheet.Column(3).Width = 20; 
-                
-                worksheet.Cells[1, 4].Value = "原文本";
-                worksheet.Column(4).Width = 50; 
-                
-                worksheet.Cells[1, 5].Value = "现文本";
-                worksheet.Column(5).Width = 50; 
-                
-                worksheet.Cells[1, 6].Value = "修改类型";
-                worksheet.Column(6).Width = 10; 
-                
-                worksheet.Cells[1, 7].Value = "修改时间";
-                worksheet.Column(7).Width = 10; 
+                excelData[1, 2] = "行数";
+                excelData[1, 3] = "关键词";
+                excelData[1, 4] = "原文本";
+                excelData[1, 5] = "现文本";
+                excelData[1, 6] = "修改类型";
+                excelData[1, 7] = "修改时间";
                 
                 // 填入数据
                 var timeString = DateTime.Now.ToString("D");
@@ -671,13 +661,13 @@ namespace U0UGames.Localization.Editor
                     if(infoList == null || infoList.Count == 0)continue;
                     foreach (var changeInfo in changeInfoKvp.Value)
                     {
-                        worksheet.Cells[lineIndex, 1].Value = changeFileName;
-                        worksheet.Cells[lineIndex, 2].Value = (changeInfo.lineIndex+ExcelDataLineStartIndex).ToString();
-                        worksheet.Cells[lineIndex, 3].Value = string.IsNullOrEmpty(changeInfo.key) ? "" : changeInfo.key;
-                        worksheet.Cells[lineIndex, 4].Value = string.IsNullOrEmpty(changeInfo.originalValue) ? "" : changeInfo.originalValue;
-                        worksheet.Cells[lineIndex, 5].Value = string.IsNullOrEmpty(changeInfo.newValue) ? "" : changeInfo.newValue;
-                        worksheet.Cells[lineIndex, 6].Value = changeInfo.GetChangeTypeString();
-                        worksheet.Cells[lineIndex, 7].Value = timeString;
+                        excelData[lineIndex, 1] = changeFileName;
+                        excelData[lineIndex, 2] = (changeInfo.lineIndex+ExcelDataLineStartIndex).ToString();
+                        excelData[lineIndex, 3] = string.IsNullOrEmpty(changeInfo.key) ? "" : changeInfo.key;
+                        excelData[lineIndex, 4] = string.IsNullOrEmpty(changeInfo.originalValue) ? "" : changeInfo.originalValue;
+                        excelData[lineIndex, 5] = string.IsNullOrEmpty(changeInfo.newValue) ? "" : changeInfo.newValue;
+                        excelData[lineIndex, 6] = changeInfo.GetChangeTypeString();
+                        excelData[lineIndex, 7] = timeString;
                         lineIndex++;
                     }
                 }
@@ -688,16 +678,15 @@ namespace U0UGames.Localization.Editor
                 {
                     Directory.CreateDirectory(folderPath);
                 }
-                FileInfo file = new FileInfo(fileFullPath);
                 try
                 {
-                    package.SaveAs(file);
+                    ExcelWriter.SaveFile(excelData, fileFullPath);
                 }
                 catch(Exception e)
                 {
                     Debug.LogWarning(e);
                 }
-            }
+            
         }
 
 
@@ -722,18 +711,13 @@ namespace U0UGames.Localization.Editor
                 return;
             }
             
-             // 创建ExcelPackage对象
-            using (ExcelPackage package = new ExcelPackage())
-            {
-                // 添加一个工作表
-                ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Sheet1");
+            var excelData = new ExcelWriter.ExcelData();
                 
                 // 设置单元格的值
                 for (var index = 0; index < headerInfos.Count; index++)
                 {
-                    worksheet.Cells[1, index+1].Value = headerInfos[index].valueName;
-                    worksheet.Cells[2, index+1].Value = headerInfos[index].valueType;
-                    worksheet.Column(index+1).Width = headerInfos[index].width;
+                    excelData[1, index+1] = headerInfos[index].valueName;
+                    excelData[2, index+1] = headerInfos[index].valueType;
                 }
                 
                 // 填入数据
@@ -745,31 +729,31 @@ namespace U0UGames.Localization.Editor
                         var valueName = headerInfos[index].valueName;
                         if (valueName == LocalizeDataKeyName)
                         {
-                            worksheet.Cells[lineIndex, index+1].Value = lineData.key;
+                            excelData[lineIndex, index+1] = lineData.key;
                             continue;
                         }
                         if (valueName == LocalizeDataTips1)
                         {
-                            worksheet.Cells[lineIndex, index+1].Value = lineData.tips1;
-                            worksheet.Cells[lineIndex, index+1].Style.WrapText = true;
+                            excelData[lineIndex, index+1] = lineData.tips1;
+                            // excelData[lineIndex, index+1].Style.WrapText = true;
                             continue;
                         }
                         if (valueName == LocalizeDataTips2)
                         {
-                            worksheet.Cells[lineIndex, index+1].Value = lineData.tips2;
-                            worksheet.Cells[lineIndex, index+1].Style.WrapText = true;
+                            excelData[lineIndex, index+1] = lineData.tips2;
+                            // excelData[lineIndex, index+1].Style.WrapText = true;
                             continue;
                         }
                         if (valueName == currLanguageCode)
                         {
-                            worksheet.Cells[lineIndex, index+1].Value = lineData.translatedValues[currLanguageCode];
-                            worksheet.Cells[lineIndex, index+1].Style.WrapText = true;
+                            excelData[lineIndex, index+1] = lineData.translatedValues[currLanguageCode];
+                            // excelData[lineIndex, index+1].Style.WrapText = true;
                             continue;
                         }
                         if (lineData.translateDataAllValues.TryGetValue(valueName, out var translateDataValue))
                         {
-                            worksheet.Cells[lineIndex, index+1].Value = translateDataValue;
-                            worksheet.Cells[lineIndex, index+1].Style.WrapText = true;
+                            excelData[lineIndex, index+1] = translateDataValue;
+                            // excelData[lineIndex, index+1].Style.WrapText = true;
                         }
                     }
                     lineIndex++;
@@ -781,16 +765,15 @@ namespace U0UGames.Localization.Editor
                 {
                     Directory.CreateDirectory(folderPath);
                 }
-                FileInfo file = new FileInfo(fileFullPath);
                 try
                 {
-                    package.SaveAs(file);
+                    ExcelWriter.SaveFile(excelData, fileFullPath);
                 }
                 catch(Exception e)
                 {
                     Debug.LogWarning(e);
                 }
-            }
+            
         }
         
         public static void ConvertToExcelFile(LocalizationFileData fileData, string folderPath)
@@ -810,32 +793,29 @@ namespace U0UGames.Localization.Editor
             Dictionary<string,int> languageStartCollIndex = new Dictionary<string,int>();
             
             // 创建ExcelPackage对象
-            using (ExcelPackage package = new ExcelPackage())
-            {
-                // 添加一个工作表
-                ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Sheet1");
+                        var excelData = new ExcelWriter.ExcelData();
                 
                 // 设置单元格的值
-                worksheet.Cells[1, 1].Value = "#var";
-                worksheet.Cells[2, 1].Value = "#type";
-                worksheet.Column(1).Width = 10; 
+                excelData[1, 1] = "#var";
+                excelData[2, 1] = "#type";
+                // worksheet.Column(1).Width = 10; 
                 
-                worksheet.Cells[1, 2].Value = LocalizeDataKeyName;
-                worksheet.Cells[2, 2].Value = "string";
-                worksheet.Column(2).Width = 20;
+                excelData[1, 2] = LocalizeDataKeyName;
+                excelData[2, 2] = "string";
+                // worksheet.Column(2).Width = 20;
 
-                worksheet.Cells[1, 3].Value = LocalizeDataTips1;
-                worksheet.Cells[2, 3].Value = "string";
-                worksheet.Column(3).Width = 20;
+                excelData[1, 3] = LocalizeDataTips1;
+                excelData[2, 3] = "string";
+                // worksheet.Column(3).Width = 20;
 
-                worksheet.Cells[1, 4].Value = LocalizeDataTips2;
-                worksheet.Cells[2, 4].Value = "string";
-                worksheet.Column(3).Width = 20;
+                excelData[1, 4] = LocalizeDataTips2;
+                excelData[2, 4] = "string";
+                // worksheet.Column(3).Width = 20;
 
                 
-                worksheet.Cells[1, 5].Value = currLanguageCode;
-                worksheet.Cells[2, 5].Value = "string";
-                worksheet.Column(4).Width = 50;
+                excelData[1, 5] = currLanguageCode;
+                excelData[2, 5] = "string";
+                // worksheet.Column(4).Width = 50;
                 languageStartCollIndex[currLanguageCode] = 5;
                 
                 int startIndex = 6;
@@ -844,10 +824,10 @@ namespace U0UGames.Localization.Editor
                     var languageCode = languageData.languageCode;
                     if(languageCode == currLanguageCode)continue;
                     
-                    worksheet.Cells[1, startIndex].Value = languageCode;
-                    worksheet.Cells[2, startIndex].Value = "string";
+                    excelData[1, startIndex] = languageCode;
+                    excelData[2, startIndex] = "string";
                     languageStartCollIndex[languageCode] = startIndex;
-                    worksheet.Column(startIndex).Width = 50; 
+                    // worksheet.Column(startIndex).Width = 50; 
 
                     startIndex++;
                 }
@@ -860,15 +840,15 @@ namespace U0UGames.Localization.Editor
                     // {
                     //     continue;
                     // }
-                    worksheet.Cells[lineIndex, 2].Value = lineData.key;
-                    worksheet.Cells[lineIndex, 3].Value = lineData.tips1;
-                    worksheet.Cells[lineIndex, 4].Value = lineData.tips2;
+                    excelData[lineIndex, 2] = lineData.key;
+                    excelData[lineIndex, 3] = lineData.tips1;
+                    excelData[lineIndex, 4] = lineData.tips2;
                     foreach (var langData in _localizationConfig.languageDisplayDataList)
                     {
                         var langCode = langData.languageCode;
                         var columnIndex = languageStartCollIndex[langCode];
-                        worksheet.Cells[lineIndex, columnIndex].Value = lineData.translatedValues[langCode];
-                        worksheet.Cells[lineIndex, columnIndex].Style.WrapText = true;
+                        excelData[lineIndex, columnIndex] = lineData.translatedValues[langCode];
+                        // excelData[lineIndex, columnIndex].Style.WrapText = true;
                     }
                     lineIndex++;
                 }
@@ -879,16 +859,15 @@ namespace U0UGames.Localization.Editor
                 {
                     Directory.CreateDirectory(folderPath);
                 }
-                FileInfo file = new FileInfo(fileFullPath);
                 try
                 {
-                    package.SaveAs(file);
+                    ExcelWriter.SaveFile(excelData, fileFullPath);
                 }
                 catch(Exception e)
                 {
                     Debug.LogWarning(e);
                 }
-            }
+            
         }
         
     }
