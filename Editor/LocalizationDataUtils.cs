@@ -1,7 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using U0UGames.ExcelDataParser;
 using UnityEditor;
 using UnityEngine;
@@ -536,6 +538,78 @@ namespace U0UGames.Localization.Editor
             return fileDataList;
         }
 
+        private static List<LocalizeLineData> ProcessJsonFile(string valueLanguageCode, string jsonFilePath)
+        {
+            if (string.IsNullOrEmpty(jsonFilePath) || !File.Exists(jsonFilePath)) return null;
+            string jsonText = File.ReadAllText(jsonFilePath);
+            if (string.IsNullOrEmpty(jsonText)) return null;
+
+            if (_localizationConfig == null)
+            {
+                _localizationConfig = LocalizationConfig.GetOrCreateLocalizationConfig();
+            }
+            string currLanguageCode = _localizationConfig ? _localizationConfig.OriginalLanguageCode : null;
+
+            Dictionary<string, string> dataDict;
+            try
+            {
+                dataDict = JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonText);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Localization] 解析 JSON 失败: {jsonFilePath}, 错误: {ex.Message}");
+                return null;
+            }
+
+            if (dataDict == null || dataDict.Count == 0) return null;
+
+            List<LocalizeLineData> lineDataList = new List<LocalizeLineData>(dataDict.Count);
+            foreach (var entry in dataDict)
+            {
+                if (string.IsNullOrEmpty(entry.Key)) continue;
+                if (string.IsNullOrEmpty(entry.Value)) continue;
+
+                LocalizeLineData lineData = new LocalizeLineData
+                {
+                    key = entry.Key,
+                    originalText = entry.Value
+                };
+
+                foreach (var languageData in _localizationConfig.languageDisplayDataList)
+                {
+                    var languageCode = languageData.languageCode;
+                    lineData.translatedValues[languageCode] = null;
+                }
+                if (!string.IsNullOrEmpty(valueLanguageCode))
+                {
+                    lineData.translatedValues[valueLanguageCode] = entry.Value;
+                }
+
+                foreach(var data in lineData.translatedValues)
+                {
+                    lineData.translateDataAllValues[data.Key] = data.Value;
+                }
+
+                lineDataList.Add(lineData);
+            }
+
+            return lineDataList.Count == 0 ? null : lineDataList;
+        }
+
+        private static string GetFirstValue(Dictionary<string, string> data, params string[] keys)
+        {
+            if (data == null || keys == null) return null;
+            foreach (var key in keys)
+            {
+                if (string.IsNullOrEmpty(key)) continue;
+                if (data.TryGetValue(key, out var value))
+                {
+                    return value;
+                }
+            }
+            return null;
+        }
+
         private static LocalizationFileData GetFileData(string currLanguage,string valueLanguageCode, string filePath)
         {
             // 跳过临时文件
@@ -545,7 +619,14 @@ namespace U0UGames.Localization.Editor
             LocalizationFileData fileData = new LocalizationFileData();
             fileData.fileName = fileName;
             fileData.filePath = filePath;
-            fileData.dataList = ProcessExcelFile(valueLanguageCode, filePath);
+            if (string.Equals(Path.GetExtension(filePath), ".json", StringComparison.OrdinalIgnoreCase))
+            {
+                fileData.dataList = ProcessJsonFile(valueLanguageCode, filePath);
+            }
+            else
+            {
+                fileData.dataList = ProcessExcelFile(valueLanguageCode, filePath);
+            }
             
             // foreach (var dataLine in fileData.dataList)
             // {
@@ -591,7 +672,9 @@ namespace U0UGames.Localization.Editor
             string fullPath = UnityPathUtility.RootFolderPathToFullPath(rawExcelRootFolderPath);
             if (!Directory.Exists(fullPath)) return null;
             
-            var filePath = Directory.GetFiles(fullPath, "*.xlsx");
+            var excelFiles = Directory.GetFiles(fullPath, "*.xlsx");
+            var jsonFiles = Directory.GetFiles(fullPath, "*.json");
+            var filePath = excelFiles.Concat(jsonFiles).ToArray();
             return GetFileDataList(valueLanguageCode, filePath);
         }
 

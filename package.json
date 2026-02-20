@@ -1,6 +1,6 @@
 {
   "name": "com.u0ugames.localization",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "displayName": "U0UGames Localization System",
   "description": "A comprehensive localization system for Unity projects with AssetBundle support, dynamic module loading, multi-language management, and AI-powered translation capabilities.",
   "unity": "2021.3",

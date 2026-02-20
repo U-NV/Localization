@@ -32,8 +32,19 @@ namespace U0UGames.Localization.Editor.PropertyDrawer
             {
                 value = keyProperty.stringValue
             };
-            nameTextField.bindingPath = keyProperty.propertyPath;
-            nameTextField.Bind(property.serializedObject);
+
+            if (property.serializedObject != null && property.serializedObject.targetObject != null)
+            {
+                nameTextField.bindingPath = keyProperty.propertyPath;
+                try
+                {
+                    nameTextField.Bind(property.serializedObject);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"LocalizeStringPropertyDrawer: 绑定失败 {e.Message}");
+                }
+            }
             
             nameTextField.style.flexShrink = 1;
             nameTextField.style.flexGrow = 1;
