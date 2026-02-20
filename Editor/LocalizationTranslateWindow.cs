@@ -15,6 +15,29 @@ using Object = UnityEngine.Object;
 namespace U0UGames.Localization.Editor
 {
     // DeepSeek API 响应模型
+    // DeepSeek 流式响应模型
+    public class DeepSeekStreamResponse
+    {
+        public string id;
+        public string @object;
+        public long created;
+        public string model;
+        public StreamChoice[] choices;
+    }
+
+    public class StreamChoice
+    {
+        public int index;
+        public Delta delta;
+        public string finish_reason;
+    }
+
+    public class Delta
+    {
+        public string role;
+        public string content;
+    }
+
     public class DeepSeekResponse
     {
         public string id;
@@ -225,7 +248,7 @@ namespace U0UGames.Localization.Editor
             return defaultPrompt;
         }
 
-        private async Task<string[]> TranslateByAI(string from, string to, string[] textList)
+        private async Task<string[]> TranslateByAI(string from, string to, string[] textList, Action<string> onStreamContent = null)
         {
             
             if (string.IsNullOrEmpty(_localizationConfig.translateApiUrl))
@@ -305,8 +328,8 @@ namespace U0UGames.Localization.Editor
                         {
                             type = "json_object"
                         },
-                        max_tokens = 16384,
-                        stream = false
+                        max_tokens = 8000,
+                        stream = true
                     };
 
                     var json = JsonConvert.SerializeObject(requestBody, Formatting.Indented);
@@ -314,51 +337,91 @@ namespace U0UGames.Localization.Editor
 
                     Debug.Log($"发送翻译请求：{from} -> {to}，文本数量：{textList.Length}\n报文:{json}");
                     
-                    var response = await httpClient.PostAsync(fullApiUrl, content);
+                    using var requestMessage = new HttpRequestMessage(HttpMethod.Post, fullApiUrl)
+                    {
+                        Content = content
+                    };
+                    var response = await httpClient.SendAsync(requestMessage, HttpCompletionOption.ResponseHeadersRead);
                     
                     if (response.IsSuccessStatusCode)
                     {
-                        var responseContent = await response.Content.ReadAsStringAsync();
-                        Debug.Log($"收到翻译响应：{responseContent}");
-                        
-                        try
+                        var contentBuilder = new StringBuilder();
+                        var finishReason = string.Empty;
+
+                        using (var stream = await response.Content.ReadAsStreamAsync())
+                        using (var reader = new StreamReader(stream))
                         {
-                            var deepSeekResponse = JsonConvert.DeserializeObject<DeepSeekResponse>(responseContent);
-                            
-                            if (deepSeekResponse?.choices?.Length > 0)
+                            while (!reader.EndOfStream)
                             {
-                                var finishReason = deepSeekResponse.choices[0].finish_reason;
-                                if (finishReason == "length")
+                                var line = await reader.ReadLineAsync();
+                                if (string.IsNullOrWhiteSpace(line))
                                 {
-                                    Debug.LogError($"AI响应被截断（finish_reason=length），本批次共{textList.Length}条文本，输出超出token限制。请减小 MaxTextSize 或 MaxTextCount。");
-                                    return null;
+                                    continue;
                                 }
 
-                                var translatedContent = deepSeekResponse.choices[0].message.content;
-                                Debug.Log($"AI返回的翻译内容：{translatedContent}");
-                                
-                                var translationResult = JsonConvert.DeserializeObject<TranslationDataRequest>(translatedContent);
-                                
-                                if (translationResult?.texts != null && translationResult.texts.Length == textList.Length)
+                                if (!line.StartsWith("data: "))
                                 {
-                                    Debug.Log($"翻译成功，共{translationResult.texts.Length}条文本");
-                                    return translationResult.texts;
+                                    continue;
                                 }
-                                else
+
+                                var data = line.Substring(6).Trim();
+                                if (data == "[DONE]")
                                 {
-                                    Debug.LogError($"翻译结果数量不匹配：期望{textList.Length}，实际{translationResult?.texts?.Length ?? 0}");
-                                    Debug.LogError($"AI返回的原始内容：{translatedContent}");
+                                    break;
+                                }
+
+                                try
+                                {
+                                    var streamResponse = JsonConvert.DeserializeObject<DeepSeekStreamResponse>(data);
+                                    var choice = streamResponse?.choices?.FirstOrDefault();
+                                    if (choice == null)
+                                    {
+                                        continue;
+                                    }
+
+                                    if (!string.IsNullOrEmpty(choice.finish_reason))
+                                    {
+                                        finishReason = choice.finish_reason;
+                                    }
+
+                                    var deltaText = choice.delta?.content;
+                                    if (!string.IsNullOrEmpty(deltaText))
+                                    {
+                                        contentBuilder.Append(deltaText);
+                                        onStreamContent?.Invoke(contentBuilder.ToString());
+                                    }
+                                }
+                                catch (JsonException)
+                                {
+                                    // 流式分片中偶发异常片段时跳过，继续接收后续分片
                                 }
                             }
-                            else
+                        }
+
+                        if (finishReason == "length")
+                        {
+                            Debug.LogError($"AI响应被截断（finish_reason=length），本批次共{textList.Length}条文本，输出超出token限制。请减小 MaxTextSize 或 MaxTextCount。");
+                            return null;
+                        }
+
+                        var translatedContent = contentBuilder.ToString();
+                        Debug.Log($"AI返回的翻译内容：{translatedContent}");
+                        try
+                        {
+                            var translationResult = JsonConvert.DeserializeObject<TranslationDataRequest>(translatedContent);
+                            if (translationResult?.texts != null && translationResult.texts.Length == textList.Length)
                             {
-                                Debug.LogError("API响应中没有找到翻译结果");
+                                Debug.Log($"翻译成功，共{translationResult.texts.Length}条文本");
+                                return translationResult.texts;
                             }
+
+                            Debug.LogError($"翻译结果数量不匹配：期望{textList.Length}，实际{translationResult?.texts?.Length ?? 0}");
+                            Debug.LogError($"AI返回的原始内容：{translatedContent}");
                         }
                         catch (JsonException ex)
                         {
-                            Debug.LogError($"解析API响应失败：{ex.Message}");
-                            Debug.LogError($"原始响应内容：{responseContent}");
+                            Debug.LogError($"解析流式翻译结果失败：{ex.Message}");
+                            Debug.LogError($"AI返回的原始内容：{translatedContent}");
                         }
                     }
                     else
@@ -435,10 +498,10 @@ namespace U0UGames.Localization.Editor
             return null;
         }
 
-        private async Task<bool> TranslateInter(string srcLanguageCode, string targetLanguageCode, List<string> needTranslateTextList,List<LocalizeLineData> needTranslateDataList)
+        private async Task<bool> TranslateInter(string srcLanguageCode, string targetLanguageCode, List<string> needTranslateTextList,List<LocalizeLineData> needTranslateDataList, Action<string> onStreamContent = null)
         {
             var translateResult = await TranslateByAI(srcLanguageCode, targetLanguageCode,
-                needTranslateTextList.ToArray());
+                needTranslateTextList.ToArray(), onStreamContent);
             if (translateResult != null)
             {
                 Debug.Log($"开始更新{needTranslateDataList.Count}条翻译数据到内存中...");
@@ -451,12 +514,6 @@ namespace U0UGames.Localization.Editor
                     var oldTips = needTranslateDataList[i].tips2;
                     if(string.IsNullOrEmpty(oldTips) || !oldTips.Contains("AI"))
                         needTranslateDataList[i].tips2 = oldTips + "AI";
-                    
-                    // 验证数据是否正确更新
-                    if (i < 3) // 只打印前3条作为示例
-                    {
-                        Debug.Log($"数据更新示例 {i+1}: Key={needTranslateDataList[i].key}, 原文={originalText}, 译文={translatedText}");
-                    }
                 }
                 Debug.Log($"翻译数据已成功更新到内存中，共{needTranslateDataList.Count}条");
 
@@ -529,7 +586,15 @@ namespace U0UGames.Localization.Editor
                     if (textSize <= MaxTextSize && textSize>=0 && needTranslateTextList.Count > 0)
                     {
                         bool success = await TranslateInter(srcLanguageCode, targetLanguageCode,
-                            needTranslateTextList, needTranslateDataList);
+                            needTranslateTextList, needTranslateDataList, content =>
+                            {
+                                var showText = content.Length > 80 ? "..." + content.Substring(content.Length - 80) : content;
+                                showText = showText.Replace("\n", " ").Replace("\r", "");
+                                EditorUtility.DisplayProgressBar(
+                                    $"将{srcLanguageCode}翻译至{targetLanguageCode}",
+                                    $"正在翻译{fileName} (AI接收中): {showText}", 
+                                    totalIndex/(float)fileData.dataList.Count);
+                            });
                         if (!success)
                         {
                             Debug.LogError($"翻译失败:{fileName} ({srcLanguageCode}翻译至{targetLanguageCode})");
