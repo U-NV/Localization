@@ -829,6 +829,12 @@ namespace U0UGames.Localization.Editor
             string value = lValueProp.stringValue;
             string objPath = $"{basePath}.{prop.name}";
 
+            // 如果 key 和 value 都为空，视为未配置的空槽位，直接跳过
+            if (string.IsNullOrEmpty(key) && string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
             if (string.IsNullOrEmpty(key))
             {
                 Debug.LogWarning($"[本地化收集] 关键词为空！对象路径: {objPath}", context);
