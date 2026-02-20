@@ -658,9 +658,27 @@ namespace U0UGames.Localization.Editor
             Dictionary<string, string> collectedData = new Dictionary<string, string>();
             int warningCount = 0;
 
-            EditorUtility.DisplayProgressBar("收集本地化数据", "正在搜索预制件...", 0f);
+            EditorUtility.DisplayProgressBar("收集本地化数据", "正在搜索 ScriptableObject...", 0f);
 
-            // 1. 搜集项目中的预制件
+            // 1. 搜集项目中的 ScriptableObject
+            string[] soGuids = AssetDatabase.FindAssets("t:ScriptableObject", new[] { "Assets" });
+            for (int i = 0; i < soGuids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(soGuids[i]);
+                var scriptableObj = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
+                if (scriptableObj == null) continue;
+
+                CollectLocalizeDataFromUnityObject(scriptableObj, $"ScriptableObject: {path}", collectedData, ref warningCount);
+
+                if (i % 50 == 0)
+                {
+                    EditorUtility.DisplayProgressBar("收集本地化数据",
+                        $"正在搜索 ScriptableObject ({i}/{soGuids.Length})...",
+                        (float)i / soGuids.Length * 0.3f);
+                }
+            }
+
+            // 2. 搜集项目中的预制件
             string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab");
             for (int i = 0; i < prefabGuids.Length; i++)
             {
@@ -674,11 +692,11 @@ namespace U0UGames.Localization.Editor
                 {
                     EditorUtility.DisplayProgressBar("收集本地化数据",
                         $"正在搜索预制件 ({i}/{prefabGuids.Length})...",
-                        (float)i / prefabGuids.Length * 0.8f);
+                        0.3f + (float)i / prefabGuids.Length * 0.4f);
                 }
             }
 
-            // 2. 搜集项目中所有场景（包括未打开的）
+            // 3. 搜集项目中所有场景（包括未打开的）
             var currentSceneSetup = EditorSceneManager.GetSceneManagerSetup();
             if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             {
@@ -689,7 +707,7 @@ namespace U0UGames.Localization.Editor
 
                     EditorUtility.DisplayProgressBar("收集本地化数据",
                         $"正在搜索场景 ({i + 1}/{sceneGuids.Length}): {Path.GetFileNameWithoutExtension(scenePath)}",
-                        0.8f + (float)i / sceneGuids.Length * 0.2f);
+                        0.7f + (float)i / sceneGuids.Length * 0.3f);
 
                     try
                     {
@@ -737,6 +755,26 @@ namespace U0UGames.Localization.Editor
             }
         }
 
+        private void CollectLocalizeDataFromUnityObject(Object target, string basePath,
+            Dictionary<string, string> collectedData, ref int warningCount)
+        {
+            if (target == null) return;
+
+            SerializedObject so;
+            try
+            {
+                so = new SerializedObject(target);
+            }
+            catch
+            {
+                return;
+            }
+
+            string objPath = $"{basePath} [{target.GetType().Name}]";
+            ScanSerializedObject(so, target, objPath, collectedData, ref warningCount);
+            so.Dispose();
+        }
+
         private void CollectLocalizeDataFromGameObject(GameObject go, string basePath,
             Dictionary<string, string> collectedData, ref int warningCount)
         {
@@ -755,26 +793,32 @@ namespace U0UGames.Localization.Editor
                     continue;
                 }
 
-                SerializedProperty sp = so.GetIterator();
-                bool enterChildren = true;
-                while (sp.NextVisible(enterChildren))
-                {
-                    if (sp.propertyType == SerializedPropertyType.Generic && sp.type == "LocalizeData")
-                    {
-                        enterChildren = false;
-                        ProcessSerializedLocalizeData(sp, comp, basePath, collectedData, ref warningCount);
-                    }
-                    else
-                    {
-                        enterChildren = true;
-                    }
-                }
-
+                string objPath = $"{basePath} -> {GetGameObjectPath(comp.gameObject)} [{comp.GetType().Name}]";
+                ScanSerializedObject(so, comp, objPath, collectedData, ref warningCount);
                 so.Dispose();
             }
         }
 
-        private void ProcessSerializedLocalizeData(SerializedProperty prop, MonoBehaviour comp,
+        private void ScanSerializedObject(SerializedObject so, Object context, string basePath,
+            Dictionary<string, string> collectedData, ref int warningCount)
+        {
+            SerializedProperty sp = so.GetIterator();
+            bool enterChildren = true;
+            while (sp.NextVisible(enterChildren))
+            {
+                if (sp.propertyType == SerializedPropertyType.Generic && sp.type == "LocalizeData")
+                {
+                    enterChildren = false;
+                    ProcessSerializedLocalizeData(sp, context, basePath, collectedData, ref warningCount);
+                }
+                else
+                {
+                    enterChildren = true;
+                }
+            }
+        }
+
+        private void ProcessSerializedLocalizeData(SerializedProperty prop, Object context,
             string basePath, Dictionary<string, string> collectedData, ref int warningCount)
         {
             var lKeyProp = prop.FindPropertyRelative("lKey");
@@ -783,11 +827,11 @@ namespace U0UGames.Localization.Editor
 
             string key = lKeyProp.stringValue;
             string value = lValueProp.stringValue;
-            string objPath = $"{basePath} -> {GetGameObjectPath(comp.gameObject)} [{comp.GetType().Name}.{prop.name}]";
+            string objPath = $"{basePath}.{prop.name}";
 
             if (string.IsNullOrEmpty(key))
             {
-                Debug.LogWarning($"[本地化收集] 关键词为空！对象路径: {objPath}", comp.gameObject);
+                Debug.LogWarning($"[本地化收集] 关键词为空！对象路径: {objPath}", context);
                 warningCount++;
                 return;
             }
@@ -796,7 +840,7 @@ namespace U0UGames.Localization.Editor
             {
                 if (existingValue != value)
                 {
-                    Debug.LogWarning($"[本地化收集] 关键词重复且值不同！Key: {key}, 当前值: \"{value}\", 已存在值: \"{existingValue}\"。\n对象路径: {objPath}", comp.gameObject);
+                    Debug.LogWarning($"[本地化收集] 关键词重复且值不同！Key: {key}, 当前值: \"{value}\", 已存在值: \"{existingValue}\"。\n对象路径: {objPath}", context);
                 }
                 warningCount++;
                 return;
