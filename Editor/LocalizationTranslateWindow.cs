@@ -78,6 +78,7 @@ namespace U0UGames.Localization.Editor
             EditorGUILayout.LabelField("翻译", EditorStyles.boldLabel);
             
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUI.BeginChangeCheck();
             _localizationConfig.translateApiKey = EditorGUILayout.TextField("翻译API Key", _localizationConfig.translateApiKey);
             _localizationConfig.translateApiUrl = EditorGUILayout.TextField("翻译API URL", _localizationConfig.translateApiUrl);
             
@@ -100,6 +101,12 @@ namespace U0UGames.Localization.Editor
             
             EditorGUILayout.LabelField("翻译AI提示");
             _localizationConfig.translateAIPrompt = EditorGUILayout.TextArea(_localizationConfig.translateAIPrompt, GUILayout.Height(60));
+            
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorUtility.SetDirty(_localizationConfig);
+                AssetDatabase.SaveAssets();
+            }
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
