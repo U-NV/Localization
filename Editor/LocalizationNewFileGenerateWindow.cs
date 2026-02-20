@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,6 +6,9 @@ using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using U0UGames.Localization.UI;
+using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 
@@ -640,8 +643,172 @@ namespace U0UGames.Localization.Editor
             AssetDatabase.Refresh();
         }
         
+        private void ShowCollectFromSceneAndPrefabs()
+        {
+            EditorGUILayout.LabelField("从场景和预制件中收集本地化数据", EditorStyles.boldLabel);
+            if (GUILayout.Button("收集并生成本地化Json文件"))
+            {
+                CollectLocalizeDataFromProject();
+            }
+        }
+
+        private static readonly string CollectedJsonFileName = "CollectedLocalizeData.json";
+
+        private void CollectLocalizeDataFromProject()
+        {
+            Dictionary<string, string> collectedData = new Dictionary<string, string>();
+            int warningCount = 0;
+
+            EditorUtility.DisplayProgressBar("收集本地化数据", "正在搜索预制件...", 0f);
+
+            // 1. 搜集项目中的预制件
+            string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab");
+            for (int i = 0; i < prefabGuids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(prefabGuids[i]);
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+
+                LocalizeText[] components = prefab.GetComponentsInChildren<LocalizeText>(true);
+                foreach (var comp in components)
+                {
+                    string objPath = $"预制件: {path} -> {GetGameObjectPath(comp.gameObject)}";
+                    if (!ProcessLocalizeComponent(comp, objPath, collectedData))
+                    {
+                        warningCount++;
+                    }
+                }
+
+                if (i % 50 == 0)
+                {
+                    EditorUtility.DisplayProgressBar("收集本地化数据",
+                        $"正在搜索预制件 ({i}/{prefabGuids.Length})...",
+                        (float)i / prefabGuids.Length * 0.8f);
+                }
+            }
+
+            // 2. 搜集项目中所有场景（包括未打开的）
+            var currentSceneSetup = EditorSceneManager.GetSceneManagerSetup();
+            if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                string[] sceneGuids = AssetDatabase.FindAssets("t:SceneAsset", new[] { "Assets" });
+                for (int i = 0; i < sceneGuids.Length; i++)
+                {
+                    string scenePath = AssetDatabase.GUIDToAssetPath(sceneGuids[i]);
+
+                    EditorUtility.DisplayProgressBar("收集本地化数据",
+                        $"正在搜索场景 ({i + 1}/{sceneGuids.Length}): {Path.GetFileNameWithoutExtension(scenePath)}",
+                        0.8f + (float)i / sceneGuids.Length * 0.2f);
+
+                    try
+                    {
+                        EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"[本地化收集] 无法打开场景: {scenePath}，已跳过。\n{e.Message}");
+                        continue;
+                    }
+
+                    LocalizeText[] sceneComponents = Object.FindObjectsOfType<LocalizeText>(true);
+                    foreach (var comp in sceneComponents)
+                    {
+                        string objPath = $"场景: {scenePath} -> {GetGameObjectPath(comp.gameObject)}";
+                        if (!ProcessLocalizeComponent(comp, objPath, collectedData))
+                        {
+                            warningCount++;
+                        }
+                    }
+                }
+
+                // 恢复原先打开的场景
+                if (currentSceneSetup != null && currentSceneSetup.Length > 0)
+                {
+                    EditorSceneManager.RestoreSceneManagerSetup(currentSceneSetup);
+                }
+            }
+
+            EditorUtility.ClearProgressBar();
+
+            // 3. 保存为 Json
+            if (collectedData.Count > 0)
+            {
+                string json = JsonConvert.SerializeObject(collectedData, Formatting.Indented);
+                
+                var folderFullPath = UnityPathUtility.RootFolderPathToFullPath(_localizationConfig.excelDataFolderRootPath);
+                if (!Directory.Exists(folderFullPath))
+                {
+                    Directory.CreateDirectory(folderFullPath);
+                }
+                
+                string savePath = Path.Combine(folderFullPath, CollectedJsonFileName);
+                File.WriteAllText(savePath, json);
+                Debug.Log($"成功收集 {collectedData.Count} 条数据（{warningCount} 条警告），已保存至: {savePath}");
+                AssetDatabase.Refresh();
+            }
+            else
+            {
+                Debug.LogWarning("未收集到任何有效的本地化数据。");
+            }
+        }
+
+        /// <returns>true 表示正常处理，false 表示遇到警告</returns>
+        private bool ProcessLocalizeComponent(LocalizeText comp, string objectPath, Dictionary<string, string> collectedData)
+        {
+            if (comp == null) return true;
+
+            string key;
+            string value;
+            try
+            {
+                (key, value) = comp.GetLocalizeData();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[本地化收集] 获取 {objectPath} 上的 LocalizeData 失败：{e.Message}", comp.gameObject);
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(key))
+            {
+                Debug.LogWarning($"[本地化收集] 关键词为空！对象路径: {objectPath}", comp.gameObject);
+                return false;
+            }
+
+            if (collectedData.TryGetValue(key, out var existingValue))
+            {
+                if (existingValue != value)
+                {
+                    Debug.LogWarning($"[本地化收集] 关键词重复且值不同！Key: {key}, 当前值: \"{value}\", 已存在值: \"{existingValue}\"。\n对象路径: {objectPath}", comp.gameObject);
+                }
+                return false;
+            }
+
+            collectedData.Add(key, value);
+            return true;
+        }
+
+        private string GetGameObjectPath(GameObject obj)
+        {
+            string path = obj.name;
+            while (obj.transform.parent != null)
+            {
+                obj = obj.transform.parent.gameObject;
+                path = obj.name + "/" + path;
+            }
+            return path;
+        }
+
         public void OnGUI()
         {
+            {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                ShowCollectFromSceneAndPrefabs();
+                EditorGUILayout.EndVertical();
+            }
+
+            EditorGUILayout.Space(5);
+
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 ExportLocalizationExcelFilePanel();
@@ -654,6 +821,8 @@ namespace U0UGames.Localization.Editor
                 GenerateFromLocalizeDataFolder();
                 EditorGUILayout.EndVertical();
             }
+
+
         }
     }
 }

@@ -11,7 +11,9 @@ namespace U0UGames.Localization.UI
     {
         [SerializeField] private TMP_Text _target;
         public TMP_Text TargetText => _target;
-        protected LocalizeData localizeData ;
+        [SerializeField] protected LocalizeData localizeData ;
+        public LocalizeData LocalizeData => localizeData;
+        
         private void OnValidate()
         {
             _target ??= GetComponent<TMP_Text>();
