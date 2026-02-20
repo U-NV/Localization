@@ -6,7 +6,6 @@ using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
-using U0UGames.Localization.UI;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using UnityEditor.AddressableAssets;
@@ -669,15 +668,7 @@ namespace U0UGames.Localization.Editor
                 GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab == null) continue;
 
-                LocalizeText[] components = prefab.GetComponentsInChildren<LocalizeText>(true);
-                foreach (var comp in components)
-                {
-                    string objPath = $"预制件: {path} -> {GetGameObjectPath(comp.gameObject)}";
-                    if (!ProcessLocalizeComponent(comp, objPath, collectedData))
-                    {
-                        warningCount++;
-                    }
-                }
+                CollectLocalizeDataFromGameObject(prefab, $"预制件: {path}", collectedData, ref warningCount);
 
                 if (i % 50 == 0)
                 {
@@ -710,18 +701,12 @@ namespace U0UGames.Localization.Editor
                         continue;
                     }
 
-                    LocalizeText[] sceneComponents = Object.FindObjectsOfType<LocalizeText>(true);
-                    foreach (var comp in sceneComponents)
+                    foreach (var rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
                     {
-                        string objPath = $"场景: {scenePath} -> {GetGameObjectPath(comp.gameObject)}";
-                        if (!ProcessLocalizeComponent(comp, objPath, collectedData))
-                        {
-                            warningCount++;
-                        }
+                        CollectLocalizeDataFromGameObject(rootGo, $"场景: {scenePath}", collectedData, ref warningCount);
                     }
                 }
 
-                // 恢复原先打开的场景
                 if (currentSceneSetup != null && currentSceneSetup.Length > 0)
                 {
                     EditorSceneManager.RestoreSceneManagerSetup(currentSceneSetup);
@@ -752,40 +737,72 @@ namespace U0UGames.Localization.Editor
             }
         }
 
-        /// <returns>true 表示正常处理，false 表示遇到警告</returns>
-        private bool ProcessLocalizeComponent(LocalizeText comp, string objectPath, Dictionary<string, string> collectedData)
+        private void CollectLocalizeDataFromGameObject(GameObject go, string basePath,
+            Dictionary<string, string> collectedData, ref int warningCount)
         {
-            if (comp == null) return true;
+            MonoBehaviour[] allComponents = go.GetComponentsInChildren<MonoBehaviour>(true);
+            foreach (var comp in allComponents)
+            {
+                if (comp == null) continue;
 
-            string key;
-            string value;
-            try
-            {
-                (key, value) = comp.GetLocalizeData();
+                SerializedObject so;
+                try
+                {
+                    so = new SerializedObject(comp);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                SerializedProperty sp = so.GetIterator();
+                bool enterChildren = true;
+                while (sp.NextVisible(enterChildren))
+                {
+                    if (sp.propertyType == SerializedPropertyType.Generic && sp.type == "LocalizeData")
+                    {
+                        enterChildren = false;
+                        ProcessSerializedLocalizeData(sp, comp, basePath, collectedData, ref warningCount);
+                    }
+                    else
+                    {
+                        enterChildren = true;
+                    }
+                }
+
+                so.Dispose();
             }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[本地化收集] 获取 {objectPath} 上的 LocalizeData 失败：{e.Message}", comp.gameObject);
-                return false;
-            }
+        }
+
+        private void ProcessSerializedLocalizeData(SerializedProperty prop, MonoBehaviour comp,
+            string basePath, Dictionary<string, string> collectedData, ref int warningCount)
+        {
+            var lKeyProp = prop.FindPropertyRelative("lKey");
+            var lValueProp = prop.FindPropertyRelative("lValue");
+            if (lKeyProp == null || lValueProp == null) return;
+
+            string key = lKeyProp.stringValue;
+            string value = lValueProp.stringValue;
+            string objPath = $"{basePath} -> {GetGameObjectPath(comp.gameObject)} [{comp.GetType().Name}.{prop.name}]";
 
             if (string.IsNullOrEmpty(key))
             {
-                Debug.LogWarning($"[本地化收集] 关键词为空！对象路径: {objectPath}", comp.gameObject);
-                return false;
+                Debug.LogWarning($"[本地化收集] 关键词为空！对象路径: {objPath}", comp.gameObject);
+                warningCount++;
+                return;
             }
 
             if (collectedData.TryGetValue(key, out var existingValue))
             {
                 if (existingValue != value)
                 {
-                    Debug.LogWarning($"[本地化收集] 关键词重复且值不同！Key: {key}, 当前值: \"{value}\", 已存在值: \"{existingValue}\"。\n对象路径: {objectPath}", comp.gameObject);
+                    Debug.LogWarning($"[本地化收集] 关键词重复且值不同！Key: {key}, 当前值: \"{value}\", 已存在值: \"{existingValue}\"。\n对象路径: {objPath}", comp.gameObject);
                 }
-                return false;
+                warningCount++;
+                return;
             }
 
             collectedData.Add(key, value);
-            return true;
         }
 
         private string GetGameObjectPath(GameObject obj)
