@@ -4,6 +4,7 @@ using U0UGames.Excel2SO;
 using U0UGames.Localization;
 using UnityEngine;
 
+[CreateAssetMenu(fileName = "Glossary", menuName = "Localization/Glossary")]
 public class LocalizationGlossary : ScriptableObject, IExcelLineData
 {
     [System.Serializable]

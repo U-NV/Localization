@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -239,6 +239,30 @@ namespace U0UGames.Localization.Editor
                     _localizationConfig.SetGlossary(tempGlossary);
                     EditorUtility.SetDirty(_localizationConfig);
                     AssetDatabase.SaveAssetIfDirty(_localizationConfig);
+                }
+                if (_localizationConfig.Glossary == null)
+                {
+                    if (GUILayout.Button("创建术语表"))
+                    {
+                        var glossaryPath = EditorUtility.SaveFilePanelInProject(
+                            "创建术语表配置",
+                            "Glossary",
+                            "asset",
+                            "请选择术语表配置文件保存位置");
+
+                        if (!string.IsNullOrEmpty(glossaryPath))
+                        {
+                            var glossary = ScriptableObject.CreateInstance<LocalizationGlossary>();
+                            AssetDatabase.CreateAsset(glossary, glossaryPath);
+                            _localizationConfig.SetGlossary(glossary);
+
+                            EditorUtility.SetDirty(glossary);
+                            EditorUtility.SetDirty(_localizationConfig);
+                            AssetDatabase.SaveAssetIfDirty(glossary);
+                            AssetDatabase.SaveAssetIfDirty(_localizationConfig);
+                            AssetDatabase.Refresh();
+                        }
+                    }
                 }
 
                 EditorGUILayout.EndVertical();
