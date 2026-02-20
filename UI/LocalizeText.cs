@@ -93,6 +93,7 @@ namespace U0UGames.Localization.UI
 
             if (localizeData.LocalizeString == null || string.IsNullOrEmpty(localizeData.LocalizeString.localizationKey))
             {
+                Debug.LogWarning($"LocalizeText: {gameObject.name} 的 localizeData 为空或关键词为空，已设置为空文本");
                 Target.text = "";
                 return;
             }
