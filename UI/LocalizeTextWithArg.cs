@@ -12,9 +12,9 @@ namespace U0UGames.Localization.UI
             _argList = argList;
         }
         
-        public override void UpdateText()
+        public override void RefreshComponent()
         {
-            if (localizeString == null || string.IsNullOrEmpty(localizeString.localizationKey))
+            if (localizeData.LocalizeString == null || string.IsNullOrEmpty(localizeData.LocalizeString.localizationKey))
             {
                 Target.text = "";
                 return;
@@ -28,12 +28,12 @@ namespace U0UGames.Localization.UI
                     var arg = _argList[index];
                     args[index] = arg.Invoke();
                 }
-                Target.text = LocalizationManager.GetTextWithArg(localizeString.localizationKey, args);
+                Target.text = LocalizationManager.GetTextWithArg(localizeData.LocalizeString.localizationKey, args);
 
             }
             else
             {
-                Target.text = LocalizationManager.GetText(localizeString.localizationKey);
+                Target.text = LocalizationManager.GetText(localizeData.LocalizeString.localizationKey);
             }
 
         }

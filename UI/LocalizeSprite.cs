@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using U0UGames.Localization;
 
 namespace U0UGames.Localization.UI
 {
-    public class LocalizeSprite:MonoBehaviour
+    public class LocalizeSprite:LocalizeComponent
     {
         [Serializable]
         public class LocalizeSpriteConfig
@@ -39,10 +40,10 @@ namespace U0UGames.Localization.UI
             }
             else
             {
-                UpdateImage();
+                RefreshComponent();
             }
         }
-        public void UpdateImage()
+        public override void RefreshComponent()
         {
             var currLanguage = LocalizationManager.CurrLanguageCode;
             foreach (var config in _spriteConfigs)
@@ -53,38 +54,6 @@ namespace U0UGames.Localization.UI
                     break;
                 }
             }
-        }
-        
-        private bool _isListening = false;
-
-        private void OnEnable()
-        {
-            StartListening();
-            UpdateImage();
-        }
-        private void OnDisable()
-        {
-            StopListening();
-        }
-        private void OnDestroy()
-        {
-            StopListening();
-        }
-        public void StartListening()
-        {
-            if(_isListening)return;
-            _isListening = true;
-            LocalizationManager.OnLanguageChanged += LanguageChangeEventHandle;
-        }
-        public void StopListening()
-        {
-            if(!_isListening)return;
-            _isListening = false;
-            LocalizationManager.OnLanguageChanged -= LanguageChangeEventHandle;
-        }
-        private void LanguageChangeEventHandle(string languageCode)
-        {
-            UpdateImage();
         }
     }
 }

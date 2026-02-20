@@ -20,6 +20,23 @@ namespace U0UGames.Localization
             _localizeString = new LocalizeString(key);
         }
 
+        public void SetLocalizeKey(string key){
+            lKey = key;
+            if(_localizeString!=null){
+                _localizeString.localizationKey = key;
+            }else{
+                _localizeString = new LocalizeString(key);
+            }
+            lValue = _localizeString.Value;
+        }
+
+        internal void Clear()
+        {
+            lKey = "";
+            lValue = "";
+            _localizeString = null;
+        }
+
         private LocalizeString _localizeString;
         public LocalizeString LocalizeString
         {

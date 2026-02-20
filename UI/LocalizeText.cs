@@ -2,15 +2,16 @@
 using TMPro;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
+using U0UGames.Localization;
 
 namespace U0UGames.Localization.UI
 {
     [RequireComponent(typeof(TMP_Text))]
-    public class LocalizeText:MonoBehaviour
+    public class LocalizeText:LocalizeComponent
     {
         [SerializeField] private TMP_Text _target;
         public TMP_Text TargetText => _target;
-        [SerializeField] protected LocalizeString localizeString;
+        protected LocalizeData localizeData ;
         private void OnValidate()
         {
             _target ??= GetComponent<TMP_Text>();
@@ -32,12 +33,12 @@ namespace U0UGames.Localization.UI
         {
             set
             {
-                localizeString = value;
-                UpdateText();
+                localizeData?.SetLocalizeKey(value.localizationKey);
+                RefreshComponent();
             }
             get
             {
-                return localizeString;
+                return localizeData?.LocalizeString;
             }
         }
 
@@ -68,68 +69,32 @@ namespace U0UGames.Localization.UI
 
         public void Init(LocalizeString text, TMP_Text target)
         {
-            localizeString = text;
+            localizeData.SetLocalizeKey(text.localizationKey);
             Target = target;
-            UpdateText();
+            RefreshComponent();
         }
 
         public void ForceShow(string text)
         {
             if (!Target) return;
 
-            localizeString = LocalizeString.Empty;
+            localizeData.Clear();
             Target.text = text;
             OnTextChange?.Invoke();
         }
         
-        public virtual void UpdateText()
+        public override void RefreshComponent()
         {
             if (!Target) return;
 
-            if (localizeString == null || string.IsNullOrEmpty(localizeString.localizationKey))
+            if (localizeData.LocalizeString == null || string.IsNullOrEmpty(localizeData.LocalizeString.localizationKey))
             {
                 Target.text = "";
                 return;
             }
             
-            Target.text = localizeString.Value;
+            Target.text = localizeData.LocalizeString.Value;
             OnTextChange?.Invoke();
-        }
-        
-        private void OnDestroy()
-        {
-            StopListening();
-        }
-
-        private void OnEnable()
-        {
-            StartListening();
-            UpdateText();
-        }
-
-        private void OnDisable()
-        {
-            StopListening();
-        }
-
-        private bool isListening = false;
-        public void StartListening()
-        {
-            if(isListening)return;
-            isListening = true;
-            LocalizationManager.OnLanguageChanged += LanguageChangeEventHandle;
-        }
-
-        public void StopListening()
-        {
-            if(!isListening)return;
-            isListening = false;
-            LocalizationManager.OnLanguageChanged -= LanguageChangeEventHandle;
-        }
-
-        private void LanguageChangeEventHandle(string languageCode)
-        {
-            UpdateText();
         }
     }
 }
