@@ -219,8 +219,8 @@ namespace U0UGames.Localization.Editor
                 ]
             }}";
 
-            if(string.IsNullOrEmpty(_localizationConfig.translateAIPrompt)){
-                defaultPrompt += _localizationConfig.translateAIPrompt;
+            if(!string.IsNullOrEmpty(_localizationConfig.translateAIPrompt)){
+                defaultPrompt += "\n" + _localizationConfig.translateAIPrompt;
             }
             return defaultPrompt;
         }
@@ -305,6 +305,7 @@ namespace U0UGames.Localization.Editor
                         {
                             type = "json_object"
                         },
+                        max_tokens = 16384,
                         stream = false
                     };
 
@@ -326,10 +327,16 @@ namespace U0UGames.Localization.Editor
                             
                             if (deepSeekResponse?.choices?.Length > 0)
                             {
+                                var finishReason = deepSeekResponse.choices[0].finish_reason;
+                                if (finishReason == "length")
+                                {
+                                    Debug.LogError($"AI响应被截断（finish_reason=length），本批次共{textList.Length}条文本，输出超出token限制。请减小 MaxTextSize 或 MaxTextCount。");
+                                    return null;
+                                }
+
                                 var translatedContent = deepSeekResponse.choices[0].message.content;
                                 Debug.Log($"AI返回的翻译内容：{translatedContent}");
                                 
-                                // 解析AI返回的JSON格式翻译结果
                                 var translationResult = JsonConvert.DeserializeObject<TranslationDataRequest>(translatedContent);
                                 
                                 if (translationResult?.texts != null && translationResult.texts.Length == textList.Length)
@@ -459,7 +466,8 @@ namespace U0UGames.Localization.Editor
             return false;
         }
         
-        public const int MaxTextSize = 4500;
+        public const int MaxTextSize = 2000;
+        public const int MaxTextCount = 50;
         public async Task Translate(string srcLanguageCode, string targetLanguageCode)
         {
             if (!_localizationConfig)
@@ -495,11 +503,10 @@ namespace U0UGames.Localization.Editor
                     List<LocalizeLineData> needTranslateDataList = new List<LocalizeLineData>();
                     List<string> needTranslateTextList = new List<string>();
                     
-                    // 收集翻译数据包
+                    // 收集翻译数据包（同时限制总字符数和条数）
                     for (var startIndex = totalIndex; startIndex < fileData.dataList.Count; startIndex++)
                     {
                         var kvpData = fileData.dataList[startIndex];
-                        // 只翻译没有翻译过且游戏内正在使用的文本，即翻译文本为空，原文不为空，关键词不为空
                         var key = kvpData.key;
                         var originalText = kvpData.translatedValues[srcLanguageCode];
                         var targetText = kvpData.translatedValues[targetLanguageCode];
@@ -507,7 +514,7 @@ namespace U0UGames.Localization.Editor
                         {
                             var newTextLength = originalText.Length;
                             var newDataSize = textSize + newTextLength;
-                            if (newDataSize > MaxTextSize)
+                            if (newDataSize > MaxTextSize || needTranslateTextList.Count >= MaxTextCount)
                             {
                                 break;
                             }
