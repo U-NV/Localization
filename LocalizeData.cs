@@ -9,6 +9,7 @@ namespace U0UGames.Localization
         [SerializeField] private string lKey;
         public string LocalizeKey => lKey;
         [SerializeField] private string lValue;
+        public bool IsValid => !string.IsNullOrEmpty(lKey) && !string.IsNullOrEmpty(lValue);
 
         public LocalizeData(){
 
