@@ -10,6 +10,7 @@ namespace U0UGames.Localization.UI
         public void SetArgs(List<Func<object>> argList)
         {
             _argList = argList;
+            RefreshComponent();
         }
         
         public override void RefreshComponent()
