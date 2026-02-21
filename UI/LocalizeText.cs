@@ -91,9 +91,10 @@ namespace U0UGames.Localization.UI
         {
             if (!Target) return;
 
-            if (localizeData.LocalizeString == null || string.IsNullOrEmpty(localizeData.LocalizeString.localizationKey))
+            // 如果localizeData无效，意味着此组件可能是等待被赋值的预制件。只有当localizeData有效时，才需要检查关键词是否为空。
+            if (localizeData.IsValid && string.IsNullOrEmpty(localizeData.LocalizeString.localizationKey))
             {
-                Debug.LogWarning($"LocalizeText: {gameObject.name} 的 localizeData 为空或关键词为空，已设置为空文本");
+                Debug.LogWarning($"LocalizeText: {gameObject.name} 的关键词为空，已设置为空文本");
                 Target.text = "";
                 return;
             }
