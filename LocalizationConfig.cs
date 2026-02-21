@@ -65,11 +65,6 @@ namespace U0UGames.Localization
             }
             
             // 初始化其他默认值
-            if (config.defaultModuleNames == null)
-            {
-                config.defaultModuleNames = new List<string>();
-            }
-            
             if (config.inGameLanguageCodeList == null)
             {
                 config.inGameLanguageCodeList = new List<string>();
@@ -110,10 +105,6 @@ namespace U0UGames.Localization
         [SerializeField] private LocalizationGlossary _glossary;
         public LocalizationGlossary Glossary =>_glossary;
 
-        [SerializeField] private int _maxDynamicModuleCount;
-        public int MaxDynamicModuleCount=>_maxDynamicModuleCount;
-        
-        
         [FormerlySerializedAs("languageCodeIndexOfExcelDataFile")] 
         public int originalLanguageCodeIndex;
         public string OriginalLanguageCode
@@ -130,8 +121,6 @@ namespace U0UGames.Localization
         public string excelDataFolderRootPath;
         public string translateDataFolderRootPath;
         public List<LanguageConfig> languageDisplayDataList = new List<LanguageConfig>();
-        public List<string> defaultModuleNames = new List<string>();
-
         [FormerlySerializedAs("languageCodeList")] 
         public List<string> inGameLanguageCodeList = new List<string>();
 

@@ -1,13 +1,13 @@
 # U0UGames Localization System
 
-一个功能完整的Unity本地化系统，支持AssetBundle、动态模块加载和多语言管理。
+一个面向 Unity 的高性能本地化系统，采用扁平化文本查找、按语言单文件导出、按语言分组的 Addressables 加载策略。
 
 ## ✨ 特性
 
 - 🌍 **多语言支持** - 支持简体中文、繁体中文、日文、英文等多种语言
 - 📦 **AssetBundle集成** - 基于AssetBundle的本地化资源管理
-- 🔄 **动态模块加载** - 支持运行时动态加载和卸载本地化模块
-- 🎯 **智能缓存** - 自动管理模块缓存，优化内存使用
+- 🧠 **扁平化查询** - 运行时单字典 `TryGetValue`，减少字符串解析和多级查找开销
+- 📄 **单文件导出** - 每语言一个聚合 JSON，降低小文件数量带来的管理和加载成本
 - 🎨 **UI组件支持** - 内置Text、Image、Sprite等UI组件的本地化支持
 - ⚡ **高性能** - 优化的数据结构和查找算法
 - 🛠️ **编辑器工具** - 完整的编辑器工具链，支持Excel数据导入和配置管理
@@ -103,8 +103,7 @@ Assets/U0UGames/Localization/
 ├── Runtime/
 │   ├── LocalizationManager.cs          # 核心管理器
 │   ├── LocalizationConfig.cs           # 配置文件
-│   ├── LocalizationDataModule.cs       # 数据模块
-│   ├── LocalizationDataModuleManager.cs # 模块管理器
+│   ├── LocalizationDataModuleManager.cs # 扁平化数据存储管理器
 │   └── UI/                             # UI组件
 │       ├── LocalizeText.cs
 │       ├── LocalizeImage.cs
@@ -138,20 +137,16 @@ Assets/U0UGames/Localization/
 }
 ```
 
-### AssetBundle结构
+### Addressables结构（当前推荐）
 
 ```
-StreamingAssets/
-└── Localization/
-    ├── zh-cn/          # 简体中文资源包
-    │   ├── UI.json
-    │   └── Game.json
-    ├── en/             # 英文资源包
-    │   ├── UI.json
-    │   └── Game.json
-    └── ja/             # 日文资源包
-        ├── UI.json
-        └── Game.json
+Addressables Groups
+├── Localization_zh-cn
+│   └── zh-cn_all.json
+├── Localization_en
+│   └── en_all.json
+└── Localization_ja
+    └── ja_all.json
 ```
 
 ## 🛠️ 编辑器工具
@@ -191,7 +186,7 @@ StreamingAssets/
 - `GetTextWithArg(string textKey, params object[] args)` - 获取带参数的本地化文本
 - `GetSprite(string textKey)` - 获取本地化Sprite
 - `GetObject<T>(string textKey)` - 获取本地化Unity对象
-- `SwitchLanguage(string languageCode, List<string> textModules = null)` - 切换语言
+- `SwitchLanguage(string languageCode)` - 切换语言
 - `GetRecommendLanguageCode()` - 获取推荐语言代码
 
 #### 属性
@@ -272,17 +267,11 @@ private void OnLanguageChanged(LocalizeLanguageChangeEvent evt)
 - 翻译质量取决于AI服务的能力和提示词设置
 - 建议对重要文本进行人工校对
 
-## 🔧 高级用法
+## 🔧 架构说明
 
-### 动态模块加载
-
-```csharp
-// 动态加载特定模块
-var module = DataModuleManager.TryLoadDataModule("NewModule");
-
-// 卸载不需要的模块
-DataModuleManager.UnloadDataModule("OldModule");
-```
+- 运行时不再依赖 `modulename.a.b` 做模块路由，key 仅作为文本索引。
+- 切换语言时加载对应 `"{langCode}_all"` 资源地址，并覆盖当前字典数据。
+- 若需进一步按需加载，建议在单语言大于 2MB 后再考虑核心/扩展双层包。
 
 ### 自定义语言代码转换
 
@@ -298,9 +287,9 @@ DataModuleManager.UnloadDataModule("OldModule");
 ### 常见问题
 
 1. **找不到本地化文本**
-   - 检查Key是否正确
-   - 确认对应模块已加载
-   - 验证AssetBundle路径
+   - 检查 Key 是否正确
+   - 确认语言聚合文件已生成并注册 Addressable
+   - 验证 `Localization_{langCode}` 组中存在 `"{langCode}_all"` 条目
 
 2. **AssetBundle加载失败**
    - 检查StreamingAssets路径

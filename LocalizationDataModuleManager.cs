@@ -1,34 +1,20 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace U0UGames.Localization
 {
+    /// <summary>
+    /// 本地化数据存储管理器 - 扁平化查询版本
+    /// 将所有文本数据存储在单一字典中，消除模块查找开销
+    /// </summary>
     public class LocalizationDataModuleManager
     {
-        private LocalizationConfig _config;
-        private LocalizationConfig Config
-        {
-            get
-            {
-                if (_config != null) return _config;
-                _config = LocalizationManager.Config;
-                return _config;
-            }    
-        }
-
-        private int _maxDynamicModuleCount = 20;
         public void Init(LocalizationConfig config)
         {
-            _config = config;
-            // _currLanguageAssetBundle = null;
-            DataModuleLookup.Clear();
-            DataModuleList.Clear();
-            // _dynamicLoadDataModuleList.Clear();
-            _maxDynamicModuleCount = Config.MaxDynamicModuleCount;
+            _textLookup.Clear();
+            _activeAssetLookup.Clear();
+            _activeAssetList.Clear();
         }
 
         private string _currLanguageCode;
@@ -36,165 +22,131 @@ namespace U0UGames.Localization
         {
             if (string.IsNullOrEmpty(languageCode))
             {
-                Debug.LogError("languageCode is null or empty");
+                Debug.LogError("[Localization] languageCode is null or empty");
                 return;
             }
 
-            // 数据是相同，无需更新
+            // 数据相同，无需更新
             if (_currLanguageCode == languageCode)
             {
                 return;
             }
             
-            // 清空所有本地化模块
-            foreach (var module in DataModuleList)
-            {
-                module.Unload();
-            }
-            // _dynamicLoadDataModuleList.Clear();
-            DataModuleList.Clear();
-            DataModuleLookup.Clear();
-
+            // 清空文本数据
+            _textLookup.Clear();
+            _activeAssetLookup.Clear();
+            _activeAssetList.Clear();
             _currLanguageCode = languageCode;
         }
         
-        
-        private readonly Dictionary<string,LocalizationDataModule> DataModuleLookup = new Dictionary<string,LocalizationDataModule>();
-        private readonly List<LocalizationDataModule> DataModuleList = new List<LocalizationDataModule>();
+        // 扁平化文本查找表 - 所有模块的文本合并到一个字典
+        private readonly Dictionary<string, string> _textLookup = new Dictionary<string, string>(8192);
+        private readonly Dictionary<string, UnityEngine.Object> _activeAssetLookup = new Dictionary<string, UnityEngine.Object>();
+        private readonly List<UnityEngine.Object> _activeAssetList = new List<UnityEngine.Object>();
 
-        public void LoadDataModule(string moduleName, TextAsset jsonAsset)
+        /// <summary>
+        /// 加载语言数据 - 合并所有模块到单一字典
+        /// </summary>
+        public void LoadLanguageData(Dictionary<string, string> textData)
         {
-            if (!DataModuleLookup.TryGetValue(moduleName, out var module))
-            {
-                module = new LocalizationDataModule(moduleName, _currLanguageCode);
-                DataModuleLookup[moduleName] = module;
-                DataModuleList.Add(module);
-            }
-            // 此时数据已经加载好了，我们直接传入 Text 让 Module 初始化
-            module.LoadData(jsonAsset.text);
-        }
-
-        // public LocalizationDataModule TryLoadDataModule(string moduleName)
-        // {
-        //     if (string.IsNullOrEmpty(_currLanguageCode))
-        //     {
-        //         ChangeLanguage(LocalizationManager.DefaultLanguageCode);
-        //         return null;
-        //     }
-
-        //     if (string.IsNullOrEmpty(_currLanguageCode))
-        //     {
-        //         Debug.LogError("当前语言代码为空");
-        //         return null;
-        //     }
-
-        //     // 如果缓存中存在所需模块，直接返回
-        //     if (DataModuleLookup.TryGetValue(moduleName, out var existModule))
-        //     {
-        //         return existModule;
-        //     }
+            if (textData == null) return;
             
-        //     // 创建新的空模块
-        //     LocalizationDataModule module = new LocalizationDataModule(moduleName, _currLanguageCode);
-        //     DataModuleList.Add(module);
-        //     DataModuleLookup[moduleName] = module;
-            
-        //     // 同步等待异步加载完成（注意：这会阻塞当前线程）
-        //     try
-        //     {
-        //         bool success = module.LoadData(); 
-        
-        //         if (!success)
-        //         {
-        //             Debug.LogError($"[Localization] 模块 {moduleName} 加载失败");
-        //         }
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         Debug.LogError($"[Localization] 加载模块 {moduleName} 时发生异常: {ex.Message}\n{ex.StackTrace}");
-        //     }
-
-        //     // 返回新模块
-        //     return module;
-        // }
-        // public void LoadDataModule(List<string> moduleNameList)
-        // {
-        //     if(moduleNameList == null || moduleNameList.Count == 0)return;
-        //     foreach (var name in moduleNameList)
-        //     {
-        //         TryLoadDataModule(name);
-        //     }
-        // }
-
-
-        private void UnloadDataModule(LocalizationDataModule module)
-        {
-            module.Unload();
-            DataModuleLookup.Remove(module.Name);
-            DataModuleList.Remove(module);
-            // _dynamicLoadDataModuleList.Remove(module);
-        }
-        public void UnloadDataModule(string moduleName)
-        {
-            if (DataModuleLookup.TryGetValue(moduleName, out var module))
+            foreach (var kvp in textData)
             {
-                UnloadDataModule(module);
+                _textLookup[kvp.Key] = kvp.Value;
             }
         }
-        public void UnloadDataModule(List<string> moduleNameList)
+
+        /// <summary>
+        /// 从JSON文本加载语言数据
+        /// </summary>
+        public bool LoadLanguageDataFromJson(string jsonText)
         {
-            if(moduleNameList == null || moduleNameList.Count == 0)return;
-            foreach (var name in moduleNameList)
+            if (string.IsNullOrEmpty(jsonText))
             {
-                UnloadDataModule(name);
-            }
-        }
-        
-        public bool TryGetText(string textKey, out string result)
-        {
-            result = textKey;
-            string moduleName = LocalizationManager.GetModuleName(textKey);
-            if (string.IsNullOrEmpty(moduleName))
-            {
+                Debug.LogError("[Localization] JSON text is null or empty");
                 return false;
             }
-            if (DataModuleLookup.TryGetValue(moduleName, out var module))
+
+            try
             {
-                if (module.TryGetLocalizeString(textKey, out string value))
+                var textData = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(jsonText);
+                if (textData == null || textData.Count == 0)
                 {
-                    if (value != null)
-                    {
-                        result = value;
-                        return true;
-                    }
+                    Debug.LogWarning("[Localization] JSON data is empty");
                     return false;
                 }
-            }else{
-                Debug.LogWarning($"找不到本地化模块：{moduleName}");
+                
+                LoadLanguageData(textData);
+                return true;
             }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Localization] Failed to parse JSON: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取文本 - 单次字典查找，无模块解析开销
+        /// </summary>
+        public bool TryGetText(string textKey, out string result)
+        {
+            if (string.IsNullOrEmpty(textKey))
+            {
+                result = string.Empty;
+                return false;
+            }
+            
+            // 单次字典查找，无字符串解析开销
+            if (_textLookup.TryGetValue(textKey, out result))
+            {
+                return true;
+            }
+            
+            result = textKey;
             return false;
         }
 
+        /// <summary>
+        /// 获取当前语言的所有key数量
+        /// </summary>
+        public int GetTextCount() => _textLookup.Count;
+
+        /// <summary>
+        /// 检查key是否存在
+        /// </summary>
+        public bool ContainsKey(string key) => _textLookup.ContainsKey(key);
+
+        // 资源对象加载 - 通过文案key映射到资源路径
         public Sprite GetSprite(string key)
         {
-            foreach (var module in DataModuleList)
-            {
-                if (module.TryGetLocalizeObject<Sprite>(key, out Sprite value))
-                {
-                    return value;
-                }
-            }
-            return null;
+            return GetObject<Sprite>(key);
         }
 
         public T GetObject<T>(string key) where T:UnityEngine.Object
         {
-            foreach (var module in DataModuleList)
+            if (!_textLookup.TryGetValue(key, out var assetPath) || string.IsNullOrEmpty(assetPath))
             {
-                if (module.TryGetLocalizeObject<T>(key, out T value))
-                {
-                    return value;
-                }
+                return null;
+            }
+
+            if (_activeAssetLookup.TryGetValue(assetPath, out var cachedObject))
+            {
+                return cachedObject as T;
+            }
+
+            var obj = Resources.Load(assetPath);
+            if (obj is T targetObject)
+            {
+                _activeAssetLookup[assetPath] = targetObject;
+                _activeAssetList.Add(targetObject);
+                return targetObject;
+            }
+
+            if (obj != null)
+            {
+                Resources.UnloadAsset(obj);
             }
             return null;
         }

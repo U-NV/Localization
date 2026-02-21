@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,82 +9,79 @@ using UnityEngine;
 
 namespace U0UGames.Localization.Editor
 {
+    /// <summary>
+    /// 本地化JSON生成器 - Phase 2版本
+    /// 每语言生成单一聚合JSON文件，包含所有模块数据
+    /// </summary>
     public class LocalizationJsonGenerator
     {
         private readonly LocalizationConfig _localizationConfig;
-        private Dictionary<string, JsonDataModule> _jsonDataModuleLookup = new();
+        
+        // 每语言一个聚合字典
+        private Dictionary<string, Dictionary<string, string>> _languageData = new();
 
         public LocalizationJsonGenerator(LocalizationConfig config)
         {
             _localizationConfig = config;
         }
 
-        private class JsonDataModule
+        /// <summary>
+        /// 添加数据到对应语言的聚合字典
+        /// </summary>
+        private void AddLanguageData(string languageCode, string key, string value)
         {
-            public string moduleName;
-            private Dictionary<string, Dictionary<string, string>> languageKvpLookup = new();
-
-            public JsonDataModule(string name)
+            if (!_languageData.TryGetValue(languageCode, out var dict))
             {
-                this.moduleName = name;
-                languageKvpLookup.Clear();
+                dict = new Dictionary<string, string>();
+                _languageData[languageCode] = dict;
             }
-
-            public void AddData(string languageCode, string key, string value)
-            {
-                if (!languageKvpLookup.TryGetValue(languageCode, out var translateLookup))
-                {
-                    translateLookup = new Dictionary<string, string>();
-                    languageKvpLookup[languageCode] = translateLookup;
-                }
-                translateLookup[key] = value;
-            }
-
-            private void SaveFile(string path, string info)
-            {
-                string folderPath = Path.GetDirectoryName(path);
-                if (folderPath != null && !Directory.Exists(folderPath))
-                {
-                    if (File.Exists(folderPath))
-                    {
-                        File.Delete(folderPath);
-                    }
-                    Directory.CreateDirectory(folderPath);
-                }
-                File.WriteAllText(path, info);
-            }
-
-            public void SaveJsonFile()
-            {
-                foreach (var kvp in languageKvpLookup)
-                {
-                    var languageCode = kvp.Key;
-                    string fullPath = LocalizationManager.GetJsonDataFullPath(languageCode, moduleName);
-                    var jsonFile = JsonConvert.SerializeObject(kvp.Value, Formatting.Indented);
-                    SaveFile(fullPath, jsonFile);
-                    LocalizationAddressableHelper.SetJsonAddressable(fullPath, languageCode, moduleName);
-                }
-                AssetDatabase.SaveAssets();
-            }
+            dict[key] = value;
         }
 
-        private void AddToJsonDataModule(LocalizationDataUtils.LocalizeLineData lineData)
+        /// <summary>
+        /// 从Excel行数据提取并聚合
+        /// </summary>
+        private void AggregateLineData(LocalizationDataUtils.LocalizeLineData lineData)
         {
-            var languageKey = lineData.key;
-            if (string.IsNullOrEmpty(languageKey)) return;
-            string moduleName = LocalizationManager.GetModuleName(lineData.key);
-            if (string.IsNullOrEmpty(moduleName)) return;
-            if (!_jsonDataModuleLookup.TryGetValue(moduleName, out var dataModule))
-            {
-                dataModule = new JsonDataModule(moduleName);
-                _jsonDataModuleLookup[moduleName] = dataModule;
-            }
+            if (string.IsNullOrEmpty(lineData.key)) return;
+            
             foreach (var kvp in lineData.translatedValues)
             {
                 var languageCode = kvp.Key;
                 var languageValue = kvp.Value;
-                dataModule.AddData(languageCode, languageKey, languageValue);
+                AddLanguageData(languageCode, lineData.key, languageValue);
             }
+        }
+
+        /// <summary>
+        /// 保存语言聚合文件
+        /// </summary>
+        private void SaveLanguageFile(string languageCode)
+        {
+            if (!_languageData.TryGetValue(languageCode, out var data))
+            {
+                Debug.LogWarning($"[Localization] No data for language: {languageCode}");
+                return;
+            }
+
+            string folderPath = LocalizationManager.GetJsonFolderFullPath(languageCode);
+            string fileName = $"{languageCode}_all.json";
+            string fullPath = Path.Combine(folderPath, fileName);
+
+            // 确保目录存在
+            if (!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+
+            // 序列化为JSON
+            var jsonContent = JsonConvert.SerializeObject(data, Formatting.Indented);
+            File.WriteAllText(fullPath, jsonContent);
+
+            // 注册Addressable（Phase 2版本）
+            LocalizationAddressableHelper.SetLanguageDataAddressable(fullPath, languageCode);
+
+            Debug.Log($"[Localization] 已生成语言聚合文件: {languageCode}, {data.Count}条文本, 路径: {fullPath}");
         }
 
         public static void BuildAddressables()
@@ -111,47 +107,69 @@ namespace U0UGames.Localization.Editor
             }
             else
             {
-                Debug.LogError("[Addressables] 未找到 BuildScriptPackedMode 构建器！请检查 Addressables 配置。");
+                Debug.LogError("[Addressables] 未找到 BuildScriptPackedMode 构建器！");
             }
         }
 
+        /// <summary>
+        /// Phase 2: 生成每语言单文件
+        /// </summary>
         public void GenerateJsonFiles()
         {
-            EditorUtility.DisplayProgressBar("导出Json文件", "导出Json文件", 0);
+            EditorUtility.DisplayProgressBar("导出Json文件", "正在收集数据...", 0);
 
             var languageCodeList = _localizationConfig.GetLanguageCodeList();
             var currLanguageCode = _localizationConfig.OriginalLanguageCode;
 
-            _jsonDataModuleLookup.Clear();
+            // 清空旧数据
+            _languageData.Clear();
+
+            // 清理旧文件
             foreach (var languageCode in languageCodeList)
             {
                 string folderPath = LocalizationManager.GetJsonFolderFullPath(languageCode);
-                UnityPathUtility.DeleteAllFile(folderPath, false);
+                if (Directory.Exists(folderPath))
+                {
+                    UnityPathUtility.DeleteAllFile(folderPath, false);
+                }
             }
 
-            var translateDataFileList = LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(currLanguageCode, _localizationConfig.translateDataFolderRootPath);
+            // 从翻译数据收集
+            var translateDataFileList = LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(
+                currLanguageCode, _localizationConfig.translateDataFolderRootPath);
+            
             if (translateDataFileList != null)
             {
                 foreach (var dataFile in translateDataFileList)
                 {
                     foreach (var dataline in dataFile.dataList)
                     {
-                        AddToJsonDataModule(dataline);
+                        AggregateLineData(dataline);
                     }
                 }
             }
 
-            var moduleList = _jsonDataModuleLookup.Values.ToArray();
-            var moduleCount = moduleList.Length;
-            for (int i = 0; i < moduleCount; i++)
+            // 保存每个语言的聚合文件
+            var langCount = languageCodeList.Count;
+            for (int i = 0; i < langCount; i++)
             {
-                var jsonModule = moduleList[i];
-                jsonModule.SaveJsonFile();
-                EditorUtility.DisplayProgressBar("导出Json文件", $"导出Json文件:{jsonModule.moduleName}", i / (float)moduleCount);
+                var langCode = languageCodeList[i];
+                SaveLanguageFile(langCode);
+                EditorUtility.DisplayProgressBar("导出Json文件", $"正在生成: {langCode}", (i + 1) / (float)langCount);
             }
+
             AssetDatabase.SaveAssets();
             BuildAddressables();
             EditorUtility.ClearProgressBar();
+
+            // 统计信息
+            int totalEntries = 0;
+            foreach (var kvp in _languageData)
+            {
+                totalEntries += kvp.Value.Count;
+            }
+            Debug.Log($"[Localization] 导出完成！共 {languageCodeList.Count} 个语言文件，总计 {totalEntries} 条文本");
         }
+
     }
 }

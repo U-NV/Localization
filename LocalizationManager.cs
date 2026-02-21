@@ -6,10 +6,16 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using Object = UnityEngine.Object;
 
 namespace U0UGames.Localization
 {
+    /// <summary>
+    /// 本地化管理器 - 扁平化查询版本
+    /// 核心变更：
+    /// 1. 移除模块名解析路由，改为单次字典查找
+    /// 2. Addressables按语言分Group加载
+    /// 3. 每语言单文件聚合
+    /// </summary>
     public static class LocalizationManager
     {
         public static event Action<string> OnLanguageChanged;
@@ -32,8 +38,6 @@ namespace U0UGames.Localization
                     return _config;
                 }
                 
-                // 加载配置文件
-                // if (LocalizationConfigResourcePath == null) return null;
                 LocalizationConfig config = Resources.Load<LocalizationConfig>(LocalizationConfigFileName);
                 if(config==null)return null;
                 
@@ -41,6 +45,7 @@ namespace U0UGames.Localization
                 return config;
             }
         }
+        
         private static string _currLanguageCode;
         public static string CurrLanguageCode
         {
@@ -54,34 +59,38 @@ namespace U0UGames.Localization
             }
         }
 
-
-        // 数据
+        // 数据管理器 - 扁平化查询
         private static readonly LocalizationDataModuleManager DataModuleManager = new LocalizationDataModuleManager();
         
-        // 字符串优化（移除缓存，因为大部分key只查询一次）
+        // 字符串优化
         private static readonly StringBuilder _stringBuilder = new StringBuilder(256);
         
+        // 获取语言文件夹路径
         public static string GetJsonFolderFullPath(string languageCode)
         {
             return Path.Combine(Application.dataPath, 
                 LocalizationManager.LocalizationResourcesFolder, languageCode);
         }
-        public static string GetJsonDataFullPath(string languageCode, string moduleName)
+        
+        /// <summary>
+        /// 获取语言聚合文件路径（Phase 2）
+        /// </summary>
+        public static string GetLanguageDataFullPath(string languageCode)
         {
             return Path.Combine(
-                LocalizationManager.GetJsonFolderFullPath(languageCode),
-                $"{moduleName}.json");
+                GetJsonFolderFullPath(languageCode),
+                $"{languageCode}_all.json");
         }
-
+        
         /// <summary>
-        /// 获取翻译文本（无缓存版本，适用于大部分key只查询一次的场景）
+        /// 获取翻译文本 - 单次字典查找，无GC分配
         /// </summary>
         public static string GetText(string textKey)
         {
             if (string.IsNullOrEmpty(textKey))
                 return string.Empty;
                 
-            // 直接获取翻译结果，无缓存开销
+            // 单次字典查找，无模块名解析开销
             DataModuleManager.TryGetText(textKey, out var result);
             result = ApplayGlossary(result);
             return result;
@@ -92,16 +101,13 @@ namespace U0UGames.Localization
             if (string.IsNullOrEmpty(textKey))
                 return string.Empty;
                 
-            // 如果找不到关键词对应的翻译，直接返回默认结果
-            if(!DataModuleManager.TryGetText(textKey,out var result))
+            if(!DataModuleManager.TryGetText(textKey, out var result))
             {
                 return textKey;
             }
             
-            // 找到则尝试添加参数
             try
             {
-                // 使用StringBuilder优化字符串拼接
                 _stringBuilder.Clear();
                 _stringBuilder.AppendFormat(result, args);
                 result = ApplayGlossary(_stringBuilder.ToString());
@@ -109,8 +115,7 @@ namespace U0UGames.Localization
             }
             catch (Exception ex)
             {
-                // 改进错误处理，记录具体错误信息
-                Debug.LogWarning($"格式化字符串失败: {textKey}, 错误: {ex.Message}");
+                Debug.LogWarning($"[Localization] String format failed: {textKey}, Error: {ex.Message}");
                 _stringBuilder.Clear();
                 _stringBuilder.Append(result);
                 _stringBuilder.Append(":");
@@ -122,10 +127,12 @@ namespace U0UGames.Localization
                 return _stringBuilder.ToString();
             }
         }
+        
+        // 资源获取 - Phase 2后将迁移到独立资源管理器
         public static Sprite GetSprite(string textKey) => DataModuleManager.GetSprite(textKey);
         public static T GetObject<T>(string textKey) where T:UnityEngine.Object => DataModuleManager.GetObject<T>(textKey);
 
-        // 初始
+        // 初始化
         private static bool _isInit = false;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         private static async Task Start()
@@ -133,10 +140,8 @@ namespace U0UGames.Localization
             if(_isInit)return;
             _isInit = true;
 
-
             DataModuleManager.Init(Config);
             InitGlossary(Config.Glossary);
-
 
             SwitchLanguage("zh-cn");
         }
@@ -163,14 +168,12 @@ namespace U0UGames.Localization
 
         public static void UpdateDynamicGlossary(string keyword, string value){
             _staticGlossaryLookup[keyword] = new LocalizeData(value, value);
-
             glossaryCache[keyword] = value;
             dynamicGlossaryCache[keyword] = value;
         }
 
         public static void RemoveDynamicGlossary(string keyword){
             _staticGlossaryLookup.Remove(keyword);
-
             glossaryCache.Remove(keyword);
             dynamicGlossaryCache.Remove(keyword);
         }
@@ -186,78 +189,30 @@ namespace U0UGames.Localization
         private static readonly char GlossaryKeyEndMark = '#';
         private static string ApplayGlossary(string text){
             if(string.IsNullOrEmpty(text))return text;
-            // 找不到关键词标记则直接返回原始文本
             var startIndex = text.IndexOf(GlossaryKeyStartMark);
             if(startIndex == -1)return text;
-            // 从开始标记之后的位置查找结束标记，避免找到同一个标记
             var endIndex = text.IndexOf(GlossaryKeyEndMark, startIndex + 1);
             if(endIndex == -1)return text;
 
-            // 连续的两个##， 跳过
             if(endIndex - startIndex <= 1){
                 return text;
             }
-            // 找到标记则提取关键词（包含开始和结束标记）
             var key = text[startIndex..(endIndex + 1)];
-            // Debug.Log($"key:{key}");
-            // 如果不包含这个关键词，直接返回原文本
             if(!_staticGlossaryLookup.TryGetValue(key, out var localzieData)){
-                // Debug.LogWarning($"找不到术语\"{key}\"对应的翻译");
                 return text;
             }
 
-            // 包含则先查找缓存
             if(!glossaryCache.TryGetValue(key, out var translateResult)){
                 translateResult = LocalizationManager.GetText(localzieData.LocalizeKey);
                 glossaryCache[key] = translateResult;
             }
-            // Debug.Log($"key:{key} value:{translateResult}");
 
-            // 将关键词部分替换成翻译结果
             text = text.Replace(key, translateResult);
-
-            // 递归处理，因为可能存在嵌套关键词
             text = ApplayGlossary(text);
             return text;
         }
         
-        // 关键词分析
-        // public const string DefaultModuleName = "Null";
-        public static string GetModuleName(string key)
-        {
-            if (string.IsNullOrEmpty(key)) return null;
-            int index = key.IndexOf(".", StringComparison.Ordinal);
-            if (index > 0)
-            {
-                return key.Substring(0, index).Trim();
-            }
-            return null;
-        }
-        // public static void ProcessLocalizeKey(string input, out string prefix, out string key)
-        // {
-        //     if (string.IsNullOrEmpty(input))
-        //     {
-        //         prefix = null;
-        //         key = null;
-        //         return;
-        //     }
-            
-        //     // 直接解析，无缓存开销（因为大部分key只解析一次）
-        //     int lastIndex = input.LastIndexOf(".", StringComparison.Ordinal);
-        //     if (lastIndex > 0)
-        //     {
-        //         prefix = input.Substring(0, lastIndex).Trim();
-        //         key = input.Substring(lastIndex+1).Trim();
-        //     }
-        //     else
-        //     {
-        //         prefix = null;
-        //         key = input.Trim();
-        //     }
-        // }
-
-        // 切换语言
-        // 区域代码参考 https://learn.microsoft.com/zh-cn/openspecs/windows_protocols/ms-lcid/a9eac961-e77d-41a6-90a5-ce1a8b0cdb9c
+        // 语言代码转换
         private static readonly Dictionary<string, string> _codeConvert = new Dictionary<string, string>()
         {
             // 简体中文
@@ -299,154 +254,76 @@ namespace U0UGames.Localization
             return recommendLanguageCode;
         }
         
-        // public static bool TryGetLanguagePath(string languageCode, out string languagePath)
-        // {
-        //     languageCode = languageCode.ToLower();
-        //     string outputPath = Path.Combine(Application.streamingAssetsPath, 
-        //         LocalizationManager.LocalizationResourcesFolder, languageCode);
-            
-        //     if (Directory.Exists(outputPath))
-        //     {
-        //         languagePath = outputPath;
-        //         return true;
-        //     }
-            
-        //     Debug.LogError($"找不到语言类型{languageCode} 对应的文件夹");
-        //     languagePath = null;
-        //     return false;
-        // }
-        private static AsyncOperationHandle<IList<TextAsset>> languageCodeHandle;
+        // Addressables加载句柄 - Phase 2: 单文件加载
+        private static AsyncOperationHandle<TextAsset> languageDataHandle;
         
-        public static async Task PreloadLanguageByLabel(string langCode)
+        /// <summary>
+        /// Phase 2: 加载语言聚合文件
+        /// 每语言一个文件，单次加载
+        /// </summary>
+        public static async Task LoadLanguageData(string langCode)
         {
             langCode = langCode.ToLower();
-            Debug.Log($"[Localization] 开始预加载语言包 Label: {langCode}");
+            string address = $"{langCode}_all";
             
-            // 1. 查找所有带有该 Label 的 TextAsset 资源句柄
-            // 假设你的 JSON 文件在 Addressables 里都打上了 langCode (如 "CN") 的 Label
-            languageCodeHandle = 
-                Addressables.LoadAssetsAsync<TextAsset>(langCode, null);
+            Debug.Log($"[Localization] 开始加载语言数据: {address}");
+            
+            languageDataHandle = Addressables.LoadAssetAsync<TextAsset>(address);
+            await languageDataHandle.Task;
 
-            await languageCodeHandle.Task;
-
-            if (languageCodeHandle.Status == AsyncOperationStatus.Succeeded)
+            if (languageDataHandle.Status == AsyncOperationStatus.Succeeded)
             {
-                // 检查结果是否为 null 或空
-                if (languageCodeHandle.Result == null)
+                var jsonAsset = languageDataHandle.Result;
+                if (jsonAsset == null || string.IsNullOrEmpty(jsonAsset.text))
                 {
-                    Debug.LogError($"[Localization] 预加载 Label: {langCode} 失败！Result 为 null。可能原因：Addressables 中不存在该 Label 的资源。");
+                    Debug.LogError($"[Localization] 加载 {address} 失败：内容为空");
                     return;
                 }
 
-                if (languageCodeHandle.Result.Count == 0)
+                // 解析JSON到扁平字典
+                bool success = DataModuleManager.LoadLanguageDataFromJson(jsonAsset.text);
+                if (success)
                 {
-                    Debug.LogWarning($"[Localization] 预加载 Label: {langCode} 完成，但未找到任何资源。请检查 Addressables 中是否正确设置了 Label: {langCode}");
-                    return;
+                    Debug.Log($"[Localization] {address} 加载完成，共 {DataModuleManager.GetTextCount()} 条文本");
                 }
-
-                foreach (TextAsset jsonAsset in languageCodeHandle.Result)
-                {
-                    if (jsonAsset == null)
-                    {
-                        Debug.LogWarning($"[Localization] 发现 null 资源，跳过");
-                        continue;
-                    }
-                    // 通过资源名称或地址识别模块名
-                    // 假设地址格式是 "CN/QuestModule"，我们根据名称提取
-                    string moduleName = jsonAsset.name; 
-                    DataModuleManager.LoadDataModule(moduleName, jsonAsset);
-
-                }
-                Debug.Log($"[Localization] Label: {langCode} 预加载完成，共 {languageCodeHandle.Result.Count} 个模块");
             }
             else
             {
-                // 输出详细的错误信息
-                string errorMsg = $"[Localization] 预加载 Label: {langCode} 失败！";
-                errorMsg += $"\n状态: {languageCodeHandle.Status}";
-                
-                if (languageCodeHandle.OperationException != null)
+                string errorMsg = $"[Localization] 加载 {address} 失败！\n状态: {languageDataHandle.Status}";
+                if (languageDataHandle.OperationException != null)
                 {
-                    errorMsg += $"\n异常信息: {languageCodeHandle.OperationException.Message}";
-                    errorMsg += $"\n堆栈跟踪: {languageCodeHandle.OperationException.StackTrace}";
+                    errorMsg += $"\n异常: {languageDataHandle.OperationException.Message}";
                 }
-                
-                // 检查是否是找不到资源的问题
-                if (languageCodeHandle.Status == AsyncOperationStatus.Failed)
-                {
-                    errorMsg += $"\n可能原因：";
-                    errorMsg += $"\n1. Addressables 中不存在 Label 为 '{langCode}' 的资源";
-                    errorMsg += $"\n2. Label 大小写不匹配（安卓平台对大小写敏感）";
-                    errorMsg += $"\n3. Addressables 资源未正确打包到安卓平台";
-                    errorMsg += $"\n4. Addressables 初始化未完成";
-                }
-                
                 Debug.LogError(errorMsg);
             }
         }
 
-        public static async void SwitchLanguage(string languageCode, List<string> textModules = null)
+        public static async void SwitchLanguage(string languageCode)
         {
             languageCode = ConvertCode(languageCode);
             if (!Config.inGameLanguageCodeList.Contains(languageCode))
             {
-                Debug.LogError($"找不到语言类型：{languageCode}");
+                Debug.LogError($"[Localization] 不支持的语言类型：{languageCode}");
                 return;
             }
             
-            // 如果目标语言已经是当前语言，避免重复加载
             if (_currLanguageCode == languageCode)
             {
                 return;
             }
             
             _currLanguageCode = languageCode;
-            // if (!TryGetLanguagePath(_currLanguageCode, out var languagePath))
-            // {
-            //     return;
-            // }
 
-            if(languageCodeHandle.IsValid()){
-                Addressables.Release(languageCodeHandle);
+            if(languageDataHandle.IsValid()){
+                Addressables.Release(languageDataHandle);
             }
 
             ReflashGlossaryCache();
-
             DataModuleManager.ChangeLanguage(languageCode);
             
+            await LoadLanguageData(_currLanguageCode);
 
-            var initHandle = Addressables.InitializeAsync();
-            await initHandle.Task;
-            
-            // 检查句柄是否有效，避免访问无效句柄导致异常
-            if (initHandle.IsValid())
-            {
-                if (initHandle.Status == AsyncOperationStatus.Succeeded)
-                {
-                    Debug.Log("Addressables 初始化成功");
-                    // 这里再开始加载你的本地化资源
-                }
-                else if (initHandle.Status == AsyncOperationStatus.Failed)
-                {
-                    Debug.LogError("Addressables 初始化失败: " + initHandle.OperationException);
-                }
-            }
-            else
-            {
-                // 如果句柄无效，说明 Addressables 可能已经初始化过了
-                Debug.Log("Addressables 已经初始化，跳过初始化步骤");
-            }
-
-            await PreloadLanguageByLabel(_currLanguageCode);
-
-            // DataModuleManager.LoadDataModule(Config.defaultModuleNames);
-            // DataModuleManager.LoadDataModule(textModules);
-
-
-            // 触发语言切换事件
             OnLanguageChanged?.Invoke(languageCode);
         }
-    
-
     }
 }

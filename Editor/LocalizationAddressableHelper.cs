@@ -1,53 +1,54 @@
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
-using System.IO;
-using U0UGames.Localization.Editor;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 
-public class LocalizationAddressableHelper
+namespace U0UGames.Localization.Editor
 {
-    public static void SetJsonAddressable(string filePath, string langCode, string moduleName)
+    /// <summary>
+    /// Addressables配置助手（每语言单文件 + 按语言分Group）
+    /// </summary>
+    public class LocalizationAddressableHelper
     {
-        // 1. 获取 Addressable 设置文件
-        AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
-        if (settings == null) return;
-
-        // 2. 找到或创建一个特定的 Group
-        string groupName = "LocalizationData";
-        AddressableAssetGroup group = settings.FindGroup(groupName);
-        if (group == null)
+        /// <summary>
+        /// 设置聚合语言文件为Addressable（每语言一个文件）
+        /// </summary>
+        public static void SetLanguageDataAddressable(string filePath, string langCode)
         {
-            // 创建组时拷贝 DefaultGroup 的 schemas，确保拥有正确的打包和加载配置
-            group = settings.CreateGroup(groupName, false, false, true, settings.DefaultGroup.Schemas);
-            var schema = group.GetSchema<BundledAssetGroupSchema>();
-            if (schema != null)
+            AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
+            if (settings == null) return;
+
+            string groupName = $"Localization_{langCode}";
+            AddressableAssetGroup group = settings.FindGroup(groupName);
+            if (group == null)
             {
-                schema.BuildPath.SetVariableByName(settings, AddressableAssetSettings.kLocalBuildPath);
-                schema.LoadPath.SetVariableByName(settings, AddressableAssetSettings.kLocalLoadPath);
+                group = settings.CreateGroup(groupName, false, false, true, settings.DefaultGroup.Schemas);
+                var schema = group.GetSchema<BundledAssetGroupSchema>();
+                if (schema != null)
+                {
+                    schema.BuildPath.SetVariableByName(settings, AddressableAssetSettings.kLocalBuildPath);
+                    schema.LoadPath.SetVariableByName(settings, AddressableAssetSettings.kLocalLoadPath);
+                }
             }
+
+            string assetPath = UnityPathUtility.FullPathToAssetPath(filePath);
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+            string guid = AssetDatabase.AssetPathToGUID(assetPath);
+
+            AddressableAssetEntry entry = settings.CreateOrMoveEntry(guid, group);
+
+            // 简化的地址格式
+            string customAddress = $"{langCode}_all";
+            entry.address = customAddress;
+
+            string langLabel = langCode.ToLower();
+            settings.AddLabel(langLabel);
+            entry.SetLabel(langLabel, true, true);
+
+            settings.SetDirty(AddressableAssetSettings.ModificationEvent.EntryMoved, entry, true, true);
+            
+            UnityEngine.Debug.Log($"[Localization Phase 2] 语言聚合文件: {assetPath} -> Group: {groupName}, Address: {customAddress}");
+            AssetDatabase.SaveAssets();
         }
-
-        // 3. 获取文件的 GUID
-        string assetPath = UnityPathUtility.FullPathToAssetPath(filePath);
-        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
-
-        string guid = AssetDatabase.AssetPathToGUID(assetPath);
-
-        // 4. 为该资源创建或更新 Entry
-        AddressableAssetEntry entry = settings.CreateOrMoveEntry(guid, group);
-
-        // 5. 设置自定义地址：例如 "CN/Quest_01"
-        string customAddress = $"{langCode}/{moduleName}";
-        entry.address = customAddress;
-
-        settings.AddLabel(langCode.ToLower());
-        entry.SetLabel(langCode.ToLower(), true, true);
-
-        // 6. 保存设置
-        settings.SetDirty(AddressableAssetSettings.ModificationEvent.EntryMoved, entry, true, true);
-        
-        UnityEngine.Debug.Log($"[Localization] 已将 {assetPath} 设置为 Address: {customAddress}");
-        AssetDatabase.SaveAssets();
     }
 }
