@@ -18,11 +18,14 @@ public class LocalizationAddressableHelper
         AddressableAssetGroup group = settings.FindGroup(groupName);
         if (group == null)
         {
-            // 创建组时添加必要的schemas：BundledAssetGroupSchema (Content Packing & Loading) 和 ContentUpdateGroupSchema
-            group = settings.CreateGroup(groupName, false, false, true, null);
-            // var schema = group.GetSchema<BundledAssetGroupSchema>();
-            // schema.BuildPath.SetVariableByName(settings, AddressableAssetSettings.kLocalBuildPath);
-            // schema.LoadPath.SetVariableByName(settings, AddressableAssetSettings.kLocalLoadPath);
+            // 创建组时拷贝 DefaultGroup 的 schemas，确保拥有正确的打包和加载配置
+            group = settings.CreateGroup(groupName, false, false, true, settings.DefaultGroup.Schemas);
+            var schema = group.GetSchema<BundledAssetGroupSchema>();
+            if (schema != null)
+            {
+                schema.BuildPath.SetVariableByName(settings, AddressableAssetSettings.kLocalBuildPath);
+                schema.LoadPath.SetVariableByName(settings, AddressableAssetSettings.kLocalLoadPath);
+            }
         }
 
         // 3. 获取文件的 GUID
