@@ -225,6 +225,68 @@ namespace U0UGames.Localization.Editor
             string info = "将原始数据表格 导出为 翻译表格";
 
             EditorUtility.DisplayProgressBar("导出", info, 0);
+            // 校验路径配置（避免“路径不存在/文件夹为空”时只报一句“找不到任何可以导出的文件”）
+            if (string.IsNullOrEmpty(_localizationConfig.excelDataFolderRootPath))
+            {
+                EditorUtility.ClearProgressBar();
+                EditorUtility.DisplayDialog("错误",
+                    "原始数据文件夹路径为空。\n请先在【本地化配置】界面选择“原始表格文件夹”。",
+                    "确认");
+                return;
+            }
+
+            var rawDataFolderFullPath = UnityPathUtility.RootFolderPathToFullPath(_localizationConfig.excelDataFolderRootPath);
+            if (string.IsNullOrEmpty(rawDataFolderFullPath) || !Directory.Exists(rawDataFolderFullPath))
+            {
+                EditorUtility.ClearProgressBar();
+                Debug.LogError(
+                    "[Localization] 原始数据文件夹不存在，无法导出翻译表格。\n" +
+                    $"  存储路径: '{_localizationConfig.excelDataFolderRootPath}'\n" +
+                    $"  还原完整路径: '{rawDataFolderFullPath}'\n" +
+                    $"  RootFolderPath: '{UnityPathUtility.RootFolderPath}'\n" +
+                    $"  Application.dataPath: '{Application.dataPath}'\n" +
+                    "  解决：请在【本地化配置】界面重新选择正确的“原始表格文件夹”。");
+                EditorUtility.DisplayDialog("错误",
+                    $"原始数据文件夹不存在：\n{rawDataFolderFullPath}\n\n请到【本地化配置】重新选择正确的文件夹路径。",
+                    "确认");
+                return;
+            }
+
+            // 只统计根目录（当前导出逻辑也只读取根目录）
+            var rawXlsx = Directory.GetFiles(rawDataFolderFullPath, "*.xlsx");
+            var rawJson = Directory.GetFiles(rawDataFolderFullPath, "*.json");
+            if (rawXlsx.Length == 0 && rawJson.Length == 0)
+            {
+                // 额外提示：如果文件在子目录里，会导致“找不到任何可以导出的文件”
+                var rawXlsxDeep = Directory.GetFiles(rawDataFolderFullPath, "*.xlsx", SearchOption.AllDirectories);
+                var rawJsonDeep = Directory.GetFiles(rawDataFolderFullPath, "*.json", SearchOption.AllDirectories);
+
+                EditorUtility.ClearProgressBar();
+                Debug.LogError(
+                    "[Localization] 原始数据文件夹中未找到任何可导出的文件（*.xlsx / *.json）。\n" +
+                    $"  文件夹: '{rawDataFolderFullPath}'\n" +
+                    $"  根目录统计: xlsx={rawXlsx.Length}, json={rawJson.Length}\n" +
+                    $"  递归统计: xlsx={rawXlsxDeep.Length}, json={rawJsonDeep.Length}\n" +
+                    "  解决：请确认文件是否放在根目录，或在【本地化配置】中选择到真正包含文件的目录。");
+
+                var extra = (rawXlsxDeep.Length > 0 || rawJsonDeep.Length > 0)
+                    ? "\n\n提示：检测到文件存在于子文件夹中，但当前导出只读取根目录。请把文件移动到该目录根部，或改为选择子文件夹作为“原始表格文件夹”。"
+                    : "";
+                EditorUtility.DisplayDialog("错误",
+                    $"原始数据文件夹中未找到任何 *.xlsx / *.json：\n{rawDataFolderFullPath}{extra}",
+                    "确认");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_localizationConfig.translateDataFolderRootPath))
+            {
+                EditorUtility.ClearProgressBar();
+                EditorUtility.DisplayDialog("错误",
+                    "翻译表格文件夹路径为空。\n请先在【本地化配置】界面选择“翻译表格文件夹”。",
+                    "确认");
+                return;
+            }
+
             var translateDataFolderFullPath = UnityPathUtility.RootFolderPathToFullPath(_localizationConfig.translateDataFolderRootPath);
 
             if (!Directory.Exists(translateDataFolderFullPath))
@@ -233,11 +295,16 @@ namespace U0UGames.Localization.Editor
             }
 
             var rawDataList = LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(currLanguageCode, _localizationConfig.excelDataFolderRootPath);
-            var translateDataList = LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(currLanguageCode, _localizationConfig.translateDataFolderRootPath);
+            var translateDataList = LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(currLanguageCode, _localizationConfig.translateDataFolderRootPath)
+                                   ?? new List<LocalizationDataUtils.LocalizationFileData>();
 
             if (rawDataList == null || rawDataList.Count == 0)
             {
-                Debug.LogError("找不到任何可以导出的文件");
+                Debug.LogError(
+                    "[Localization] 找不到任何可以导出的文件。\n" +
+                    $"  原始数据目录: '{rawDataFolderFullPath}'\n" +
+                    $"  根目录统计: xlsx={rawXlsx.Length}, json={rawJson.Length}\n" +
+                    "  解决：请检查目录是否正确、文件是否有效（非空、非临时文件）。");
                 EditorUtility.ClearProgressBar();
                 return;
             }
