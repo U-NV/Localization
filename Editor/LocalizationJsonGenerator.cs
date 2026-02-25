@@ -159,6 +159,7 @@ namespace U0UGames.Localization.Editor
             }
 
             AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
             BuildAddressables();
             EditorUtility.ClearProgressBar();
 

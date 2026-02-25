@@ -290,6 +290,11 @@ namespace U0UGames.Localization.Editor
             _excelChangeInfoLookup.Clear();
             _rawDataKeyVisitMark.Clear();
             var rawDataFileList = LocalizationDataUtils.GetAllLocalizationDataFromDataFolder(currLanguageCode, _localizationConfig.excelDataFolderRootPath);
+            if (rawDataFileList == null)
+            {
+                haveRepeatKeyword = false;
+                return;
+            }
             foreach (var rawDataFile in rawDataFileList)
             {
                 for (var index = 0; index < rawDataFile.dataList.Count; index++)

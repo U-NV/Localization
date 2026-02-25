@@ -9,7 +9,9 @@ namespace U0UGames.Localization.Editor
         public static string FullPathToAssetPath(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath)) return null;
-            return fullPath.Replace(Application.dataPath,"Assets");
+            string normalizedFull = fullPath.Replace('\\', '/');
+            string normalizedData = Application.dataPath.Replace('\\', '/');
+            return normalizedFull.Replace(normalizedData, "Assets");
         }
         public static string AssetPathToFullPath(string assetPath)
         {

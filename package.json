@@ -1,7 +1,7 @@
 {
   "name": "com.u0ugames.localization",
-  "version": "1.1.14",
-  "displayName": "本地化系统",
+  "version": "1.1.15",
+  "displayName": "localization",
   "description": "一个面向 Unity 项目的综合本地化系统，支持 AssetBundle、动态模块加载、多语言管理和 AI 驱动的翻译能力。",
   "unity": "2021.3",
   "keywords": [
@@ -21,7 +21,10 @@
     "url": "https://github.com/U-NV"
   },
   "dependencies": {
-    "com.unity.nuget.newtonsoft-json": "3.0.2"
+    "com.unity.nuget.newtonsoft-json": "3.0.2",
+    "com.unity.addressables": "1.22.3",
+    "com.u0ugames.excel-data-parser": "https://github.com/U-NV/ExcelDataParser.git",
+    "com.u0ugames.excel-to-scriptableobject": "https://github.com/U-NV/ExcelToScriptableObject.git"
   },
   "repository": {
     "type": "git",

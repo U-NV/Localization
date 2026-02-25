@@ -35,6 +35,12 @@ namespace U0UGames.Localization.Editor
             AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
             string guid = AssetDatabase.AssetPathToGUID(assetPath);
 
+            if (string.IsNullOrEmpty(guid))
+            {
+                UnityEngine.Debug.LogError($"[Localization] 无法获取 GUID，assetPath 可能无效: {assetPath}（原始路径: {filePath}）");
+                return;
+            }
+
             AddressableAssetEntry entry = settings.CreateOrMoveEntry(guid, group);
 
             // 简化的地址格式
