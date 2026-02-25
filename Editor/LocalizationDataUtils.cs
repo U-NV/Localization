@@ -193,6 +193,14 @@ namespace U0UGames.Localization.Editor
                 
                 headerInfos.Add(new FileHeaderInfo()
                 {
+                    valueName = LocalizeDataTips2,
+                    valueType = "string",
+                    width = 20
+                });
+                headerList.Add(LocalizeDataTips2);
+                
+                headerInfos.Add(new FileHeaderInfo()
+                {
                     valueName = currLanguageCode,
                     valueType = "string",
                     width = 50
