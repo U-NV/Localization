@@ -668,12 +668,33 @@ namespace U0UGames.Localization.Editor
  
         public static List<LocalizationFileData> GetAllLocalizationDataFromDataFolder(string valueLanguageCode, string rawExcelRootFolderPath)
         {
-            if (string.IsNullOrEmpty(rawExcelRootFolderPath)) return null;
+            if (string.IsNullOrEmpty(rawExcelRootFolderPath))
+            {
+                Debug.LogWarning("[Localization] GetAllLocalizationDataFromDataFolder: rawExcelRootFolderPath 为空，请在配置界面中设置路径");
+                return null;
+            }
+
             string fullPath = UnityPathUtility.RootFolderPathToFullPath(rawExcelRootFolderPath);
-            if (!Directory.Exists(fullPath)) return null;
-            
+            Debug.Log($"[Localization] 搜索数据文件夹\n  存储路径: '{rawExcelRootFolderPath}'\n  还原完整路径: '{fullPath}'\n  目录存在: {Directory.Exists(fullPath)}");
+
+            if (!Directory.Exists(fullPath))
+            {
+                Debug.LogError($"[Localization] 目录不存在: '{fullPath}'\n" +
+                               $"  存储的相对路径: '{rawExcelRootFolderPath}'\n" +
+                               $"  RootFolderPath: '{UnityPathUtility.RootFolderPath}'\n" +
+                               $"  Application.dataPath: '{Application.dataPath}'\n" +
+                               "  请在配置界面重新选择文件夹以修正路径。");
+                return null;
+            }
+
             var excelFiles = Directory.GetFiles(fullPath, "*.xlsx");
-            var jsonFiles = Directory.GetFiles(fullPath, "*.json");
+            var jsonFiles  = Directory.GetFiles(fullPath, "*.json");
+            Debug.Log($"[Localization] 找到文件: xlsx={excelFiles.Length}  json={jsonFiles.Length}  目录='{fullPath}'");
+            if (excelFiles.Length == 0 && jsonFiles.Length == 0)
+            {
+                Debug.LogWarning($"[Localization] 目录存在但未找到任何 .xlsx / .json 文件: '{fullPath}'");
+            }
+
             var filePath = excelFiles.Concat(jsonFiles).ToArray();
             return GetFileDataList(valueLanguageCode, filePath);
         }

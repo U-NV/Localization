@@ -1,7 +1,7 @@
 {
   "name": "com.u0ugames.localization",
-  "version": "1.1.15",
-  "displayName": "localization",
+  "version": "1.1.16",
+  "displayName": "Localization",
   "description": "一个面向 Unity 项目的综合本地化系统，支持 AssetBundle、动态模块加载、多语言管理和 AI 驱动的翻译能力。",
   "unity": "2021.3",
   "keywords": [
