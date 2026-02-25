@@ -66,11 +66,11 @@ namespace U0UGames.Localization.Editor
                     if (rawText != translateText)
                     {
                         var changeTips = GetOriginTextChangeTips(translateText, rawText);
-                        var tips2 = rawDataLine.tips2;
-                        tips2 ??= "";
-                        if (!tips2.EndsWith(changeTips))
+                        var tips1 = rawDataLine.tips1;
+                        tips1 ??= "";
+                        if (!tips1.EndsWith(changeTips))
                         {
-                            rawDataLine.tips2 += string.IsNullOrEmpty(rawDataLine.tips2) ? changeTips : "\n" + changeTips;
+                            rawDataLine.tips1 += string.IsNullOrEmpty(rawDataLine.tips1) ? changeTips : "\n" + changeTips;
                         }
                         AddChangeInfo(fileName, new ExcelLineChangeInfo(rawDataLineIndex, rawDataLine.key)
                         {
@@ -140,10 +140,10 @@ namespace U0UGames.Localization.Editor
                 _matchedTranslateKeys.Add(targetTranslateDataLine.key);
 
             var newTextTips = GetNewTextTips();
-            rawDataLine.tips2 ??= "";
-            if (rawDataLine.tips2.EndsWith(newTextTips))
+            rawDataLine.tips1 ??= "";
+            if (rawDataLine.tips1.EndsWith(newTextTips))
             {
-                rawDataLine.tips2 = rawDataLine.tips2.Replace(newTextTips, GetKeyChangeTips());
+                rawDataLine.tips1 = rawDataLine.tips1.Replace(newTextTips, GetKeyChangeTips());
             }
             AddChangeInfo(translateFileData.fileName, new ExcelLineChangeInfo(rawDataLineIndex, rawDataLine.key)
             {
@@ -185,11 +185,11 @@ namespace U0UGames.Localization.Editor
                     continue;
                 }
                 rawDataLine.translateDataAllValues.Clear();
-                rawDataLine.tips2 ??= "";
+                rawDataLine.tips1 ??= "";
                 var newTextTips = GetNewTextTips();
-                if (!rawDataLine.tips2.EndsWith(newTextTips))
+                if (!rawDataLine.tips1.EndsWith(newTextTips))
                 {
-                    rawDataLine.tips2 += string.IsNullOrEmpty(rawDataLine.tips2) ? newTextTips : "\n" + newTextTips;
+                    rawDataLine.tips1 += string.IsNullOrEmpty(rawDataLine.tips1) ? newTextTips : "\n" + newTextTips;
                 }
                 AddChangeInfo(rawExcelFileData.fileName, new ExcelLineChangeInfo(index, rawDataLine.key)
                 {
