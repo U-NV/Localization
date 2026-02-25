@@ -47,7 +47,7 @@ namespace U0UGames.Localization.Editor
             string customAddress = $"{langCode}_all";
             entry.address = customAddress;
 
-            string langLabel = langCode.ToLower();
+            string langLabel = langCode;
             settings.AddLabel(langLabel);
             entry.SetLabel(langLabel, true, true);
 

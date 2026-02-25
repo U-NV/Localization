@@ -215,7 +215,6 @@ namespace U0UGames.Localization
         // 语言代码转换（映射规则来自 LocalizationConfig.languageCodeAliasList）
         public static string ConvertCode(string code)
         {
-            code = code.ToLower();
             if (Config != null)
             {
                 foreach (var alias in Config.languageCodeAliasList)
@@ -224,14 +223,13 @@ namespace U0UGames.Localization
                         return alias.toCode;
                 }
             }
-            if (code.Contains("en")) return EnglishCode;
+            if (code.Contains("en", StringComparison.OrdinalIgnoreCase)) return EnglishCode;
             return code;
         }
 
         public static string GetRecommendLanguageCode()
         {
             var currLanguage = System.Globalization.CultureInfo.InstalledUICulture.Name;
-            currLanguage = currLanguage.ToLower();
             currLanguage = ConvertCode(currLanguage);
             var recommendLanguageCode = LocalizationManager.DefaultLanguageCode;
             if(Config.inGameLanguageCodeList.Contains(currLanguage))
@@ -250,7 +248,6 @@ namespace U0UGames.Localization
         /// </summary>
         public static async Task LoadLanguageData(string langCode)
         {
-            langCode = langCode.ToLower();
             string address = $"{langCode}_all";
             
             Debug.Log($"[Localization] 开始加载语言数据: {address}");
