@@ -53,15 +53,15 @@ namespace U0UGames.Localization
             {
                 config.languageDisplayDataList = new List<LanguageConfig>
                 {
-                    new LanguageConfig { languageCode = "zh-cn", displayName = "简体中文" },
-                    new LanguageConfig { languageCode = "en", displayName = "English" }
+                    new LanguageConfig { languageCode = "zh-CN", displayName = "简体中文" },
+                    new LanguageConfig { languageCode = "en",    displayName = "English" }
                 };
             }
             
             // 确保索引有效
             if (config.originalLanguageCodeIndex < 0 || config.originalLanguageCodeIndex >= config.languageDisplayDataList.Count)
             {
-                config.originalLanguageCodeIndex = 0; // 默认选择第一个语言
+                config.originalLanguageCodeIndex = 0;
             }
             
             // 初始化其他默认值
@@ -69,8 +69,44 @@ namespace U0UGames.Localization
             {
                 config.inGameLanguageCodeList = new List<string>();
             }
+
+            // 初始化语言码别名映射
+            if (config.languageCodeAliasList == null || config.languageCodeAliasList.Count == 0)
+            {
+                config.languageCodeAliasList = GetDefaultLanguageCodeAliasList();
+            }
         }
         
+        /// <summary>
+        /// 返回语言码别名映射的内置默认列表，可用于初始化或重置
+        /// </summary>
+        public static List<LanguageCodeAlias> GetDefaultLanguageCodeAliasList()
+        {
+            return new List<LanguageCodeAlias>
+            {
+                // 简体中文
+                new LanguageCodeAlias { fromCode = "zh-Hans", toCode = "zh-CN"  },
+                new LanguageCodeAlias { fromCode = "zh",      toCode = "zh-CN"  },
+                new LanguageCodeAlias { fromCode = "zh-CN",   toCode = "zh-CN"  },
+                new LanguageCodeAlias { fromCode = "zh-SG",   toCode = "zh-CN"  },
+                // 繁体中文
+                new LanguageCodeAlias { fromCode = "zh-Hant", toCode = "zh-CHT" },
+                new LanguageCodeAlias { fromCode = "zh-HK",   toCode = "zh-CHT" },
+                new LanguageCodeAlias { fromCode = "zh-MO",   toCode = "zh-CHT" },
+                new LanguageCodeAlias { fromCode = "zh-TW",   toCode = "zh-CHT" },
+                new LanguageCodeAlias { fromCode = "zh-CHT",  toCode = "zh-CHT" },
+                // 日文
+                new LanguageCodeAlias { fromCode = "ja",      toCode = "ja"     },
+                new LanguageCodeAlias { fromCode = "ja-JP",   toCode = "ja"     },
+                // 英文
+                new LanguageCodeAlias { fromCode = "en",      toCode = "en"     },
+                new LanguageCodeAlias { fromCode = "en-US",   toCode = "en"     },
+                new LanguageCodeAlias { fromCode = "en-GB",   toCode = "en"     },
+                new LanguageCodeAlias { fromCode = "en-AU",   toCode = "en"     },
+                new LanguageCodeAlias { fromCode = "en-CA",   toCode = "en"     },
+            };
+        }
+
         /// <summary>
         /// 确保目录存在，如果不存在则创建
         /// </summary>
@@ -102,6 +138,13 @@ namespace U0UGames.Localization
             public string displayName;
         }
 
+        [System.Serializable]
+        public class LanguageCodeAlias
+        {
+            public string fromCode;
+            public string toCode;
+        }
+
         [SerializeField] private LocalizationGlossary _glossary;
         public LocalizationGlossary Glossary =>_glossary;
 
@@ -123,6 +166,8 @@ namespace U0UGames.Localization
         public List<LanguageConfig> languageDisplayDataList = new List<LanguageConfig>();
         [FormerlySerializedAs("languageCodeList")] 
         public List<string> inGameLanguageCodeList = new List<string>();
+
+        public List<LanguageCodeAlias> languageCodeAliasList = new List<LanguageCodeAlias>();
 
         private List<string> _languageCodeList = new List<string>();
         public List<string> GetLanguageCodeList()

@@ -212,30 +212,17 @@ namespace U0UGames.Localization
             return text;
         }
         
-        // 语言代码转换
-        private static readonly Dictionary<string, string> _codeConvert = new Dictionary<string, string>()
-        {
-            // 简体中文
-            { "zh-hans", SimplifiedChineseCode },
-            { "zh", SimplifiedChineseCode },
-            { "zh-cn", SimplifiedChineseCode },
-            { "zh-sg", SimplifiedChineseCode },
-            // 繁体中文
-            { "zh-hant", TraditionalChineseCode },
-            { "zh-hk", TraditionalChineseCode },
-            { "zh-mo", TraditionalChineseCode },
-            { "zh-tw", TraditionalChineseCode },
-            { "zh-cht", TraditionalChineseCode },
-            // 日文
-            { "ja", JapaneseCode },
-            { "ja-jp", JapaneseCode },
-        };
+        // 语言代码转换（映射规则来自 LocalizationConfig.languageCodeAliasList）
         public static string ConvertCode(string code)
         {
             code = code.ToLower();
-            if (_codeConvert.TryGetValue(code, out var value))
+            if (Config != null)
             {
-                return value;
+                foreach (var alias in Config.languageCodeAliasList)
+                {
+                    if (string.Equals(alias.fromCode, code, StringComparison.OrdinalIgnoreCase))
+                        return alias.toCode;
+                }
             }
             if (code.Contains("en")) return EnglishCode;
             return code;

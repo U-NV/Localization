@@ -91,6 +91,28 @@ namespace U0UGames.Localization.Editor
                 }
                 GUI.enabled = true;
             }
+
+            ShowExportColorLegend();
+        }
+
+        private static void ShowExportColorLegend()
+        {
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField("导出颜色说明", EditorStyles.miniLabel);
+            DrawColorLegendRow(new Color(0.78f, 0.95f, 0.78f), "新增（需翻译）");
+            DrawColorLegendRow(new Color(1.00f, 0.97f, 0.70f), "原文修改（需重译）");
+            DrawColorLegendRow(new Color(1.00f, 0.87f, 0.65f), "关键词改变（可复用原译文）");
+            DrawColorLegendRow(new Color(0.88f, 0.88f, 0.88f), "待删除（可从表格中移除）");
+        }
+
+        private static void DrawColorLegendRow(Color color, string label)
+        {
+            EditorGUILayout.BeginHorizontal();
+            var rect = GUILayoutUtility.GetRect(14, 14, GUILayout.Width(14));
+            rect.y += 1;
+            EditorGUI.DrawRect(rect, color);
+            EditorGUILayout.LabelField(label, EditorStyles.miniLabel);
+            EditorGUILayout.EndHorizontal();
         }
 
         private Vector2 _generateConfigScrollPos = Vector2.zero;

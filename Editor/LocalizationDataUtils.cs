@@ -22,6 +22,9 @@ namespace U0UGames.Localization.Editor
         public bool isChanged;
         public bool isKeyChanged;
         public bool isError;
+        public bool isDeleted;
+
+        public LocalizationDataUtils.LocalizeLineData deletedLineData;
 
         public ExcelLineChangeInfo(int index, string keyword)
         {
@@ -33,8 +36,9 @@ namespace U0UGames.Localization.Editor
         {
             if (isKeyChanged) return "关键词改变";
             if (isNew) return "新增";
-            if(isChanged)return "修改";
-            if(isError)return "错误";
+            if (isChanged) return "修改";
+            if (isError) return "错误";
+            if (isDeleted) return "待删除";
             return "";
         }
     }
@@ -880,6 +884,149 @@ namespace U0UGames.Localization.Editor
             
         }
         
+        private static readonly Color _highlightColorNew        = new Color(0.78f, 0.95f, 0.78f);
+        private static readonly Color _highlightColorChanged    = new Color(1.00f, 0.97f, 0.70f);
+        private static readonly Color _highlightColorKeyChanged = new Color(1.00f, 0.87f, 0.65f);
+        private static readonly Color _highlightColorError      = new Color(1.00f, 0.75f, 0.75f);
+        private static readonly Color _highlightColorDeleted    = new Color(0.88f, 0.88f, 0.88f);
+
+        private static Color GetChangeHighlightColor(ExcelLineChangeInfo info)
+        {
+            if (info.isNew)        return _highlightColorNew;
+            if (info.isChanged)    return _highlightColorChanged;
+            if (info.isKeyChanged) return _highlightColorKeyChanged;
+            if (info.isError)      return _highlightColorError;
+            return Color.white;
+        }
+
+        private static void WriteLineDataToExcel(
+            ExcelWriter.ExcelData excelData,
+            LocalizeLineData lineData,
+            List<LocalizationFileData.FileHeaderInfo> headerInfos,
+            string currLanguageCode,
+            int excelRow)
+        {
+            for (var col = 0; col < headerInfos.Count; col++)
+            {
+                var valueName = headerInfos[col].valueName;
+                if (valueName == LocalizeDataKeyName)
+                {
+                    excelData[excelRow, col + 1] = lineData.key;
+                    continue;
+                }
+                if (valueName == LocalizeDataTips1)
+                {
+                    excelData[excelRow, col + 1] = lineData.tips1;
+                    continue;
+                }
+                if (valueName == LocalizeDataTips2)
+                {
+                    excelData[excelRow, col + 1] = lineData.tips2;
+                    continue;
+                }
+                if (valueName == currLanguageCode)
+                {
+                    lineData.translatedValues.TryGetValue(currLanguageCode, out var v);
+                    excelData[excelRow, col + 1] = v;
+                    continue;
+                }
+                if (lineData.translateDataAllValues.TryGetValue(valueName, out var allVal))
+                {
+                    excelData[excelRow, col + 1] = allVal;
+                }
+            }
+        }
+
+        public static void ConvertToTranslateExcelFileWithHighlight(
+            LocalizationFileData fileData,
+            List<ExcelLineChangeInfo> changeInfoList,
+            string folderPath)
+        {
+            if (!_localizationConfig)
+            {
+                _localizationConfig = LocalizationConfig.GetOrCreateLocalizationConfig();
+            }
+            if (!_localizationConfig)
+            {
+                Debug.LogError("找不到LocalizationConfig");
+                return;
+            }
+
+            var currLanguageCode = _localizationConfig.OriginalLanguageCode;
+            if (!fileData.GetHeaderList(currLanguageCode, out var headerInfos))
+            {
+                Debug.LogError($"无法得到{fileData.fileName}表头数据");
+                return;
+            }
+
+            var excelData  = new ExcelWriter.ExcelData();
+            var styleData  = new ExcelWriter.ExcelStyleData();
+
+            // 表头与列样式
+            for (var col = 0; col < headerInfos.Count; col++)
+            {
+                excelData[1, col + 1] = headerInfos[col].valueName;
+                excelData[2, col + 1] = headerInfos[col].valueType;
+                styleData.SetColumnWidth(col + 1, headerInfos[col].width);
+                if (headerInfos[col].width >= 40)
+                    styleData.SetColumnWrapText(col + 1, true);
+            }
+            styleData.SetFreezeRows(2);
+
+            // 构建行号 → 变更信息映射（跳过 isDeleted，末尾单独处理）
+            var rowChangeMap = new Dictionary<int, ExcelLineChangeInfo>();
+            if (changeInfoList != null)
+            {
+                foreach (var info in changeInfoList)
+                {
+                    if (info.isDeleted) continue;
+                    var excelRow = info.lineIndex + ExcelDataLineStartIndex;
+                    if (!rowChangeMap.ContainsKey(excelRow))
+                        rowChangeMap[excelRow] = info;
+                }
+            }
+
+            // 写入主体数据行
+            int lineIndex = ExcelDataLineStartIndex;
+            foreach (var lineData in fileData.dataList)
+            {
+                WriteLineDataToExcel(excelData, lineData, headerInfos, currLanguageCode, lineIndex);
+                lineIndex++;
+            }
+
+            // 应用行背景色
+            foreach (var kvp in rowChangeMap)
+            {
+                styleData.SetRowBackgroundColor(kvp.Key, GetChangeHighlightColor(kvp.Value));
+            }
+
+            // 追加待删除行（灰色）
+            if (changeInfoList != null)
+            {
+                foreach (var info in changeInfoList)
+                {
+                    if (!info.isDeleted || info.deletedLineData == null) continue;
+                    WriteLineDataToExcel(excelData, info.deletedLineData, headerInfos, currLanguageCode, lineIndex);
+                    styleData.SetRowBackgroundColor(lineIndex, _highlightColorDeleted);
+                    lineIndex++;
+                }
+            }
+
+            var fileFullPath = $@"{folderPath}\{fileData.fileName}.xlsx";
+            if (folderPath != null && !Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+            try
+            {
+                ExcelWriter.SaveFile(excelData, styleData, fileFullPath);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning(e);
+            }
+        }
+
         public static void ConvertToExcelFile(LocalizationFileData fileData, string folderPath)
         {
             if (!_localizationConfig)

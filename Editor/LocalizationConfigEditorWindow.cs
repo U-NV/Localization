@@ -1,5 +1,6 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
 using UnityEditor;
 using UnityEngine;
 
@@ -9,293 +10,464 @@ namespace U0UGames.Localization.Editor
     {
         private static class EditorPrefsKey
         {
-            public const string ModuleNamesFoldout = "ModuleNamesFoldout";
-            public const string GenerateConfigFoldout = "GenerateConfigFoldout";
-            public const string LanguageCodeFoldout = "LanguageCodeFoldout";
-            public const string LanguageDisplayNameFoldout = "LanguageDisplayNameFoldout";
-            public const string LanguageCodeIndex = "LanguageCodeIndex";
+            public const string GenerateConfigFoldout  = "GenerateConfigFoldout";
+            public const string LanguageCodeFoldout    = "LanguageCodeFoldout";
+            public const string LanguageCodeIndex      = "LanguageCodeIndex";
+            public const string LanguageAliasFoldout   = "LanguageAliasFoldout";
         }
-        
+
+        private const float LabelWidth    = 110f;
+        private const float SmallBtnWidth = 24f;
+
         private LocalizationConfig _localizationConfig;
-        private bool _isDefaultModulesEditorPanelFoldout;
         private bool _isGenerateConfigPanelFoldout;
         private bool _isLanguageCodePanelFoldout;
-        private bool _isLanguageDisplayNamePanelFoldout;
-        private int _languageCodeIndex;
-        
+        private bool _isLanguageAliasPanelFoldout;
+        private int  _languageCodeIndex;
+
         public void Init()
         {
             if (!_localizationConfig)
             {
                 _localizationConfig = LocalizationConfig.GetOrCreateLocalizationConfig();
             }
-            
-            _isDefaultModulesEditorPanelFoldout = EditorPrefs.GetBool(EditorPrefsKey.ModuleNamesFoldout);
+
             _isGenerateConfigPanelFoldout = EditorPrefs.GetBool(EditorPrefsKey.GenerateConfigFoldout);
-            _isLanguageCodePanelFoldout = EditorPrefs.GetBool(EditorPrefsKey.LanguageCodeFoldout);
-            _isLanguageDisplayNamePanelFoldout = EditorPrefs.GetBool(EditorPrefsKey.LanguageDisplayNameFoldout);
-            _languageCodeIndex = EditorPrefs.GetInt(EditorPrefsKey.LanguageCodeIndex);
+            _isLanguageCodePanelFoldout   = EditorPrefs.GetBool(EditorPrefsKey.LanguageCodeFoldout);
+            _isLanguageAliasPanelFoldout  = EditorPrefs.GetBool(EditorPrefsKey.LanguageAliasFoldout);
+            _languageCodeIndex            = EditorPrefs.GetInt(EditorPrefsKey.LanguageCodeIndex);
         }
 
-
-        
-        private void ShowChooseLanguage()
+        // ── 数据路径 & 源语言 ──────────────────────────────────────────────
+        private void ShowDataPathSection()
         {
-            {
-                EditorGUILayout.BeginVertical();
-                {
-                    EditorGUILayout.BeginHorizontal();
-                    var dataFolderAssetPath = _localizationConfig.excelDataFolderRootPath;
-                    EditorGUILayout.LabelField("原始表格文件夹:",GUILayout.Width(8*12));
-                    var selectRawDataFolderPath = LocalizationDataUtils.SelectFolderBtn(dataFolderAssetPath, "选择数据文件夹");
-                    if (!string.IsNullOrEmpty(selectRawDataFolderPath))
-                    {
-                        _localizationConfig.excelDataFolderRootPath = UnityPathUtility.FullPathToRootFolderPath(selectRawDataFolderPath);
-                    }
-                    EditorGUILayout.EndHorizontal();
+            SectionHeader("数据路径");
 
-                }
-                {  
-                    EditorGUILayout.BeginHorizontal();
-                    var translateDataFolderAssetPath = _localizationConfig.translateDataFolderRootPath;
-                    EditorGUILayout.LabelField("翻译表格文件夹:",GUILayout.Width(8*12));
-                    var selectTranslateFolderPath = LocalizationDataUtils.SelectFolderBtn(translateDataFolderAssetPath, "选择数据文件夹");
-                    if (!string.IsNullOrEmpty(selectTranslateFolderPath))
-                    {
-                        _localizationConfig.translateDataFolderRootPath = UnityPathUtility.FullPathToRootFolderPath(selectTranslateFolderPath);
-                    }
-                    EditorGUILayout.EndHorizontal();
-                }
-                EditorGUILayout.EndVertical();
-            }
-            
+            // 源数据文件夹
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("源数据文件夹", GUILayout.Width(LabelWidth));
+            var selectedRaw = LocalizationDataUtils.SelectFolderBtn(_localizationConfig.excelDataFolderRootPath, "选择数据文件夹");
+            if (!string.IsNullOrEmpty(selectedRaw))
             {
-                if (!_localizationConfig.IsValid())
-                {
-                    EditorGUILayout.LabelField("Error: 没有配置任何语言，请先添加语言配置", EditorStyles.helpBox);
-                    return;
-                }
-                
-                EditorGUILayout.BeginHorizontal();
-                
-                var enableLanguageCodeList = new List<string>(_localizationConfig.languageDisplayDataList.Count+1);
-                foreach (var generateConfig in _localizationConfig.languageDisplayDataList)
-                {
-                    enableLanguageCodeList.Add(generateConfig.languageCode);
-                }
-                EditorGUILayout.LabelField("原始数据语言:",GUILayout.Width(8*12));
-                var currLanguageCodeIndex = _localizationConfig.originalLanguageCodeIndex;
-                currLanguageCodeIndex = EditorGUILayout.Popup(currLanguageCodeIndex, 
-                    enableLanguageCodeList.ToArray(),
-                    GUILayout.Width(60));
-                if (currLanguageCodeIndex >= 0)
-                {
-                    _localizationConfig.originalLanguageCodeIndex = currLanguageCodeIndex;
-                }
-                
-                EditorGUILayout.EndHorizontal();
+                _localizationConfig.excelDataFolderRootPath = UnityPathUtility.FullPathToRootFolderPath(selectedRaw);
             }
+            EditorGUILayout.EndHorizontal();
+
+            // 翻译输出文件夹
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("翻译表格输出文件夹", GUILayout.Width(LabelWidth));
+            var selectedTranslate = LocalizationDataUtils.SelectFolderBtn(_localizationConfig.translateDataFolderRootPath, "选择数据文件夹");
+            if (!string.IsNullOrEmpty(selectedTranslate))
+            {
+                _localizationConfig.translateDataFolderRootPath = UnityPathUtility.FullPathToRootFolderPath(selectedTranslate);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            GUILayout.Space(4);
+
+            // 源语言选择
+            if (!_localizationConfig.IsValid())
+            {
+                EditorGUILayout.HelpBox("尚未配置任何语言，请先在「语言列表」中添加至少一条语言配置。", MessageType.Warning);
+                return;
+            }
+
+            var codeOptions = BuildLanguageCodeArray();
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("源语言（原始数据）", GUILayout.Width(LabelWidth));
+            var idx = EditorGUILayout.Popup(_localizationConfig.originalLanguageCodeIndex, codeOptions, GUILayout.Width(90));
+            if (idx >= 0)
+            {
+                _localizationConfig.originalLanguageCodeIndex = idx;
+            }
+            EditorGUILayout.EndHorizontal();
         }
 
+        // ── 语言列表配置 ───────────────────────────────────────────────────
         private Vector2 _generateConfigScrollPos;
         private void ShowGenerateConfigView()
         {
-            var configList = _localizationConfig.languageDisplayDataList;
-
-            EditorGUILayout.BeginVertical();
-
-            _isGenerateConfigPanelFoldout = EditorGUILayout.Foldout(_isGenerateConfigPanelFoldout, "语言配置");
+            _isGenerateConfigPanelFoldout = EditorGUILayout.Foldout(_isGenerateConfigPanelFoldout, "语言列表配置", true);
             EditorPrefs.SetBool(EditorPrefsKey.GenerateConfigFoldout, _isGenerateConfigPanelFoldout);
 
-            if (_isGenerateConfigPanelFoldout)
-            {
-                // EditorGUI.indentLevel++;
-                _generateConfigScrollPos = EditorGUILayout.BeginScrollView(_generateConfigScrollPos, EditorStyles.helpBox);
+            if (!_isGenerateConfigPanelFoldout)
+                return;
 
-                for (int i = 0; i < configList.Count; i++) 
-                {                
-                    EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-                    EditorGUILayout.BeginVertical();
-                    configList[i].languageCode = EditorGUILayout.TextField("语言码:",configList[i].languageCode);
-                    configList[i].displayName = EditorGUILayout.TextField("显示名称:",configList[i].displayName);
-                    EditorGUILayout.EndVertical();
+            var configList = _localizationConfig.languageDisplayDataList;
 
-                    bool stopDrawing = false;
-                    if (GUILayout.Button("-", GUILayout.Width(20))) 
-                    {
-                        configList.RemoveAt(i);
-                        stopDrawing = true;
-                    }
-                    EditorGUILayout.EndHorizontal();
-
-                    if (stopDrawing)
-                    {
-                        break;
-                    }
-                }
-                EditorGUILayout.EndScrollView();
-
-                EditorGUILayout.BeginHorizontal();
-                {
-                    if (GUILayout.Button("+")) 
-                    {
-                        configList.Add(new LocalizationConfig.LanguageConfig());
-                    }
-                }
-                EditorGUILayout.EndHorizontal();
-                
-                // EditorGUI.indentLevel--;
-            }
-            EditorGUILayout.EndVertical();
-        }
-        
-         private void ShowLanguageCodeView()
-        {
-            var languageCodeList = _localizationConfig.inGameLanguageCodeList;
-            
-            var enableLanguageCodeList = new List<string>(_localizationConfig.languageDisplayDataList.Count+1);
-            // enableLanguageCodeList.Add("None");
-            foreach (var generateConfig in _localizationConfig.languageDisplayDataList)
-            {
-                enableLanguageCodeList.Add(generateConfig.languageCode);
-            }
-            EditorGUILayout.BeginVertical();
-            _isLanguageCodePanelFoldout = EditorGUILayout.Foldout(_isLanguageCodePanelFoldout, "游戏内使用的语言");
-            EditorPrefs.SetBool(EditorPrefsKey.LanguageCodeFoldout, _isLanguageCodePanelFoldout);
-
-            if (_isLanguageCodePanelFoldout)
-            {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                {
-                    EditorGUILayout.BeginVertical();
-                    if(languageCodeList == null || languageCodeList.Count == 0)
-                    {
-                        EditorGUILayout.LabelField("暂无语言");
-                    }
-                    else
-                    {
-                        for (int i = 0; i < languageCodeList.Count; i++) 
-                        {                
-                            EditorGUILayout.BeginHorizontal();
-                            GUI.enabled = false;
-                            EditorGUILayout.TextField(languageCodeList[i]);
-                            GUI.enabled = true;
-                            bool stopDrawing = false;
-                            if (GUILayout.Button("-", GUILayout.Width(20))) 
-                            {
-                                languageCodeList.RemoveAt(i);
-                                stopDrawing = true;
-                            }
-                            EditorGUILayout.EndHorizontal();
-
-                            if (stopDrawing)
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    EditorGUILayout.EndVertical();
-                }
-                {
-                    EditorGUILayout.BeginHorizontal();
-                    {
-                        _languageCodeIndex = EditorGUILayout.Popup(_languageCodeIndex, enableLanguageCodeList.ToArray());
-                        if (_languageCodeIndex >= 0)
-                        {
-                            EditorPrefs.SetInt(EditorPrefsKey.LanguageCodeIndex,_languageCodeIndex);
-                        }
-
-                        string newCode = null;
-                        if (_languageCodeIndex >= 0 && _languageCodeIndex < enableLanguageCodeList.Count)
-                        {
-                            newCode = enableLanguageCodeList[_languageCodeIndex];
-                        }
-                        if (GUILayout.Button("+",GUILayout.Width(20))) 
-                        {
-                            if (!string.IsNullOrEmpty(newCode) && !languageCodeList.Contains(newCode))
-                            {
-                                languageCodeList.Add(newCode);
-                            }
-                        }
-                    }
-                    EditorGUILayout.EndHorizontal();
-                }
-                EditorGUILayout.EndVertical();
-            }
-            EditorGUILayout.EndVertical();
-        }
-         
-        public void OnGUI()
-        {
-            EditorGUILayout.Separator();
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
-
+            if (configList.Count == 0)
             {
+                EditorGUILayout.LabelField("暂无语言配置，点击下方「+」按钮添加。", EditorStyles.miniLabel);
+            }
+            else
+            {
+                _generateConfigScrollPos = EditorGUILayout.BeginScrollView(_generateConfigScrollPos,
+                    GUILayout.MaxHeight(180));
 
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                LocalizationGlossary tempGlossary = (LocalizationGlossary)EditorGUILayout.ObjectField("名词术语表", _localizationConfig.Glossary, typeof(LocalizationGlossary), false);
-                if(tempGlossary != null && tempGlossary != _localizationConfig.Glossary){
-                    _localizationConfig.SetGlossary(tempGlossary);
-                    EditorUtility.SetDirty(_localizationConfig);
-                    AssetDatabase.SaveAssetIfDirty(_localizationConfig);
-                }
-                if (_localizationConfig.Glossary == null)
+                for (int i = 0; i < configList.Count; i++)
                 {
-                    if (GUILayout.Button("创建术语表"))
+                    EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+
+                    // 序号
+                    EditorGUILayout.LabelField($"#{i + 1}", EditorStyles.boldLabel, GUILayout.Width(26));
+
+                    // 语言代码（只读）
+                    EditorGUILayout.LabelField("语言代码", GUILayout.Width(48));
+                    GUI.enabled = false;
+                    EditorGUILayout.TextField(configList[i].languageCode, GUILayout.Width(72));
+                    GUI.enabled = true;
+
+                    GUILayout.Space(4);
+
+                    // 显示名称（可编辑）
+                    EditorGUILayout.LabelField("显示名称", GUILayout.Width(48));
+                    configList[i].displayName = EditorGUILayout.TextField(configList[i].displayName);
+
+                    // 恢复默认显示名称
+                    var canReset = TryGetCulture(configList[i].languageCode, out var resetCulture);
+                    GUI.enabled = canReset;
+                    if (GUILayout.Button(new GUIContent("↺", "恢复默认显示名称"), GUILayout.Width(24)))
                     {
-                        var glossaryPath = EditorUtility.SaveFilePanelInProject(
-                            "创建术语表配置",
-                            "Glossary",
-                            "asset",
-                            "请选择术语表配置文件保存位置");
+                        configList[i].displayName = resetCulture.NativeName;
+                    }
+                    GUI.enabled = true;
 
-                        if (!string.IsNullOrEmpty(glossaryPath))
+                    // 选择语言弹窗
+                    if (GUILayout.Button("选择…", GUILayout.Width(46)))
+                    {
+                        var capturedIndex = i;
+                        var btnRect = GUILayoutUtility.GetLastRect();
+                        PopupWindow.Show(btnRect, new LanguagePickerPopup(culture =>
                         {
-                            var glossary = ScriptableObject.CreateInstance<LocalizationGlossary>();
-                            AssetDatabase.CreateAsset(glossary, glossaryPath);
-                            _localizationConfig.SetGlossary(glossary);
+                            configList[capturedIndex].languageCode = culture.Name;
+                            configList[capturedIndex].displayName  = culture.NativeName;
+                        }));
+                    }
 
-                            EditorUtility.SetDirty(glossary);
-                            EditorUtility.SetDirty(_localizationConfig);
-                            AssetDatabase.SaveAssetIfDirty(glossary);
-                            AssetDatabase.SaveAssetIfDirty(_localizationConfig);
-                            AssetDatabase.Refresh();
+                    // 删除
+                    bool removed = false;
+                    if (GUILayout.Button("−", GUILayout.Width(SmallBtnWidth)))
+                    {
+                        configList.RemoveAt(i);
+                        removed = true;
+                    }
+                    EditorGUILayout.EndHorizontal();
+
+                    if (removed) break;
+                }
+
+                EditorGUILayout.EndScrollView();
+            }
+
+            if (GUILayout.Button("＋  添加语言"))
+            {
+                configList.Add(new LocalizationConfig.LanguageConfig());
+            }
+
+            EditorGUILayout.EndVertical();
+        }
+
+        // ── 游戏内启用的语言 ───────────────────────────────────────────────
+        private void ShowLanguageCodeView()
+        {
+            _isLanguageCodePanelFoldout = EditorGUILayout.Foldout(_isLanguageCodePanelFoldout, "游戏内启用的语言", true);
+            EditorPrefs.SetBool(EditorPrefsKey.LanguageCodeFoldout, _isLanguageCodePanelFoldout);
+
+            if (!_isLanguageCodePanelFoldout)
+                return;
+
+            var languageCodeList   = _localizationConfig.inGameLanguageCodeList;
+            var enableLanguageCodes = BuildLanguageCodeArray();
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            // 当前已启用列表
+            if (languageCodeList == null || languageCodeList.Count == 0)
+            {
+                EditorGUILayout.LabelField("尚未启用任何语言，请从下方下拉框中选择并点击「+」。", EditorStyles.miniLabel);
+            }
+            else
+            {
+                for (int i = 0; i < languageCodeList.Count; i++)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField($"{i + 1}.", GUILayout.Width(20));
+                    GUI.enabled = false;
+                    EditorGUILayout.TextField(languageCodeList[i]);
+                    GUI.enabled = true;
+
+                    bool removed = false;
+                    if (GUILayout.Button("−", GUILayout.Width(SmallBtnWidth)))
+                    {
+                        languageCodeList.RemoveAt(i);
+                        removed = true;
+                    }
+                    EditorGUILayout.EndHorizontal();
+
+                    if (removed) break;
+                }
+            }
+
+            GUILayout.Space(2);
+            EditorGUILayout.LabelField("", GUI.skin.horizontalSlider); // 分割线
+
+            // 添加行
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("选择语言", GUILayout.Width(LabelWidth - 40));
+
+            if (enableLanguageCodes.Length == 0)
+            {
+                EditorGUILayout.LabelField("（请先在「语言列表」中配置语言）", EditorStyles.miniLabel);
+            }
+            else
+            {
+                _languageCodeIndex = EditorGUILayout.Popup(_languageCodeIndex, enableLanguageCodes);
+                if (_languageCodeIndex >= 0)
+                {
+                    EditorPrefs.SetInt(EditorPrefsKey.LanguageCodeIndex, _languageCodeIndex);
+                }
+
+                if (GUILayout.Button("＋", GUILayout.Width(SmallBtnWidth + 8)))
+                {
+                    if (_languageCodeIndex >= 0 && _languageCodeIndex < enableLanguageCodes.Length)
+                    {
+                        var newCode = enableLanguageCodes[_languageCodeIndex];
+                        if (!string.IsNullOrEmpty(newCode) && !languageCodeList.Contains(newCode))
+                        {
+                            languageCodeList.Add(newCode);
                         }
                     }
                 }
-
-                EditorGUILayout.EndVertical();
             }
-            
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.EndVertical();
+        }
+
+        // ── 语言码别名映射 ─────────────────────────────────────────────────
+        private Vector2 _aliasScrollPos;
+        private void ShowLanguageCodeAliasView()
+        {
+            _isLanguageAliasPanelFoldout = EditorGUILayout.Foldout(_isLanguageAliasPanelFoldout, "语言码别名映射", true);
+            EditorPrefs.SetBool(EditorPrefsKey.LanguageAliasFoldout, _isLanguageAliasPanelFoldout);
+
+            if (!_isLanguageAliasPanelFoldout)
+                return;
+
+            var aliasList = _localizationConfig.languageCodeAliasList;
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            if (aliasList.Count == 0)
             {
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                ShowChooseLanguage();
-                EditorGUILayout.EndVertical();
+                EditorGUILayout.LabelField("暂无别名映射，点击下方「+」按钮添加。", EditorStyles.miniLabel);
             }
-            EditorGUILayout.EndVertical();
-            
-            GUILayout.Space(5);
-            ShowLanguageCodeView();
+            else
+            {
+                _aliasScrollPos = EditorGUILayout.BeginScrollView(_aliasScrollPos, GUILayout.MaxHeight(160));
 
-            GUILayout.Space(5);
-            
-            
-            EditorGUILayout.BeginVertical();
-            ShowGenerateConfigView();
+                for (int i = 0; i < aliasList.Count; i++)
+                {
+                    EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+
+                    // fromCode — 只读显示 + 弹窗选择
+                    EditorGUILayout.LabelField("别名", GUILayout.Width(28));
+                    GUI.enabled = false;
+                    EditorGUILayout.TextField(aliasList[i].fromCode ?? "", GUILayout.Width(80));
+                    GUI.enabled = true;
+                    if (GUILayout.Button("选择…", GUILayout.Width(46)))
+                    {
+                        var ci = i;
+                        var btnRect = GUILayoutUtility.GetLastRect();
+                        PopupWindow.Show(btnRect, new LanguagePickerPopup(culture =>
+                        {
+                            aliasList[ci].fromCode = culture.Name;
+                        }));
+                    }
+
+                    EditorGUILayout.LabelField("→", GUILayout.Width(16));
+
+                    // toCode — 只读显示 + 弹窗选择
+                    EditorGUILayout.LabelField("映射到", GUILayout.Width(40));
+                    GUI.enabled = false;
+                    EditorGUILayout.TextField(aliasList[i].toCode ?? "", GUILayout.Width(80));
+                    GUI.enabled = true;
+                    if (GUILayout.Button("选择…", GUILayout.Width(46)))
+                    {
+                        var ci = i;
+                        var btnRect = GUILayoutUtility.GetLastRect();
+                        PopupWindow.Show(btnRect, new LanguagePickerPopup(culture =>
+                        {
+                            aliasList[ci].toCode = culture.Name;
+                        }));
+                    }
+
+                    // 删除
+                    bool removed = false;
+                    if (GUILayout.Button("−", GUILayout.Width(SmallBtnWidth)))
+                    {
+                        aliasList.RemoveAt(i);
+                        removed = true;
+                    }
+                    EditorGUILayout.EndHorizontal();
+
+                    if (removed) break;
+                }
+
+                EditorGUILayout.EndScrollView();
+            }
+
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("＋  添加映射"))
+            {
+                aliasList.Add(new LocalizationConfig.LanguageCodeAlias
+                {
+                    fromCode = "",
+                    toCode   = ""
+                });
+            }
+
+            if (GUILayout.Button(new GUIContent("↺  重置为默认", "清空当前列表并恢复内置默认别名映射")))
+            {
+                if (EditorUtility.DisplayDialog(
+                    "重置别名映射",
+                    "将清空当前所有别名映射并恢复为内置默认值，是否继续？",
+                    "确认重置", "取消"))
+                {
+                    aliasList.Clear();
+                    aliasList.AddRange(LocalizationConfig.GetDefaultLanguageCodeAliasList());
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+
             EditorGUILayout.EndVertical();
-            
+        }
+
+        // ── 名词术语表 ─────────────────────────────────────────────────────
+        private void ShowGlossaryView()
+        {
+            SectionHeader("翻译术语表");
+
+            var tempGlossary = (LocalizationGlossary)EditorGUILayout.ObjectField(
+                "术语表资源", _localizationConfig.Glossary, typeof(LocalizationGlossary), false);
+
+            if (tempGlossary != null && tempGlossary != _localizationConfig.Glossary)
+            {
+                _localizationConfig.SetGlossary(tempGlossary);
+                EditorUtility.SetDirty(_localizationConfig);
+                AssetDatabase.SaveAssetIfDirty(_localizationConfig);
+            }
+
+            if (_localizationConfig.Glossary == null)
+            {
+                EditorGUILayout.HelpBox("尚未关联术语表，可创建新文件或直接拖入已有资源。", MessageType.Info);
+
+                if (GUILayout.Button("新建术语表…"))
+                {
+                    var glossaryPath = EditorUtility.SaveFilePanelInProject(
+                        "新建术语表",
+                        "Glossary",
+                        "asset",
+                        "请选择术语表文件的保存位置");
+
+                    if (!string.IsNullOrEmpty(glossaryPath))
+                    {
+                        var glossary = ScriptableObject.CreateInstance<LocalizationGlossary>();
+                        AssetDatabase.CreateAsset(glossary, glossaryPath);
+                        _localizationConfig.SetGlossary(glossary);
+
+                        EditorUtility.SetDirty(glossary);
+                        EditorUtility.SetDirty(_localizationConfig);
+                        AssetDatabase.SaveAssetIfDirty(glossary);
+                        AssetDatabase.SaveAssetIfDirty(_localizationConfig);
+                        AssetDatabase.Refresh();
+                    }
+                }
+            }
+        }
+
+        // ── 主绘制入口 ─────────────────────────────────────────────────────
+        public void OnGUI()
+        {
+            GUILayout.Space(4);
+
+            DrawPanel(ShowDataPathSection);
+
+            GUILayout.Space(6);
+
+            DrawPanel(ShowGenerateConfigView);
+
+            GUILayout.Space(6);
+
+            DrawPanel(ShowLanguageCodeView);
+
+            GUILayout.Space(6);
+
+            DrawPanel(ShowLanguageCodeAliasView);
+
+            GUILayout.Space(6);
+
+            DrawPanel(ShowGlossaryView);
 
             if (GUI.changed)
             {
-                // 标记对象为已修改
                 EditorUtility.SetDirty(_localizationConfig);
-                // 保存已修改的 Asset
                 AssetDatabase.SaveAssetIfDirty(_localizationConfig);
             }
-            
+        }
+
+        // ── 工具方法 ───────────────────────────────────────────────────────
+        private static void DrawPanel(System.Action drawContent)
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            GUILayout.Space(2);
+            drawContent();
+            GUILayout.Space(2);
+            EditorGUILayout.EndVertical();
+        }
+
+        private static void SectionHeader(string title)
+        {
+            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
+            var rect = GUILayoutUtility.GetLastRect();
+            rect.y += rect.height + 1;
+            rect.height = 1;
+            EditorGUI.DrawRect(rect, new Color(0.5f, 0.5f, 0.5f, 0.4f));
+            GUILayout.Space(4);
+        }
+
+        private string[] BuildLanguageCodeArray()
+        {
+            var list = _localizationConfig.languageDisplayDataList;
+            var result = new List<string>(list.Count);
+            for (int i = 0; i < list.Count; i++)
+            {
+                if(string.IsNullOrEmpty(list[i].languageCode))
+                {
+                    continue;
+                }
+                result.Add(list[i].languageCode);
+            }
+            return result.ToArray();
+        }
+
+        private static bool TryGetCulture(string languageCode, out CultureInfo culture)
+        {
+            culture = null;
+            if (string.IsNullOrEmpty(languageCode)) return false;
+            try
+            {
+                culture = new CultureInfo(languageCode);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
-
- 
 }

@@ -11,6 +11,7 @@ namespace U0UGames.Localization.Editor
         private readonly LocalizationConfig _localizationConfig;
         private Dictionary<string, List<ExcelLineChangeInfo>> _excelChangeInfoLookup = new();
         private Dictionary<string, string> _rawDataKeyVisitMark = new();
+        private HashSet<string> _matchedTranslateKeys = new();
 
         public LocalizationExcelExporter(LocalizationConfig config)
         {
@@ -107,6 +108,7 @@ namespace U0UGames.Localization.Editor
                 });
             }
 
+            _matchedTranslateKeys.Add(lineDataKey);
             foreach (var sameKeyTranslateData in sameKeyTranslateDataList)
             {
                 rawDataLine.translateDataAllValues = sameKeyTranslateData.translateDataAllValues;
@@ -134,6 +136,8 @@ namespace U0UGames.Localization.Editor
             if (findText != originText) return false;
 
             rawDataLine.translateDataAllValues = targetTranslateDataLine.translateDataAllValues;
+            if (!string.IsNullOrEmpty(targetTranslateDataLine.key))
+                _matchedTranslateKeys.Add(targetTranslateDataLine.key);
 
             var newTextTips = GetNewTextTips();
             rawDataLine.tips2 ??= "";
@@ -160,6 +164,8 @@ namespace U0UGames.Localization.Editor
             LocalizationDataUtils.LocalizationFileData rawExcelFileData,
             LocalizationDataUtils.LocalizationFileData sameNameTranslateData)
         {
+            _matchedTranslateKeys.Clear();
+
             for (var index = 0; index < rawExcelFileData.dataList.Count; index++)
             {
                 LocalizationDataUtils.LocalizeLineData rawDataLine = rawExcelFileData.dataList[index];
@@ -190,6 +196,23 @@ namespace U0UGames.Localization.Editor
                     originalValue = "",
                     newValue = rawDataLine.translatedValues[currLanguageCode],
                     isNew = true
+                });
+            }
+
+            // 检测翻译表格中已不存在于原始数据的条目（待删除）
+            for (var i = 0; i < sameNameTranslateData.dataList.Count; i++)
+            {
+                var translateLine = sameNameTranslateData.dataList[i];
+                if (string.IsNullOrEmpty(translateLine.key)) continue;
+                if (_matchedTranslateKeys.Contains(translateLine.key)) continue;
+
+                translateLine.translatedValues.TryGetValue(currLanguageCode, out var originText);
+                AddChangeInfo(rawExcelFileData.fileName, new ExcelLineChangeInfo(i, translateLine.key)
+                {
+                    originalValue = originText ?? "",
+                    newValue = "",
+                    isDeleted = true,
+                    deletedLineData = translateLine
                 });
             }
         }
@@ -311,6 +334,7 @@ namespace U0UGames.Localization.Editor
 
             _excelChangeInfoLookup.Clear();
             _rawDataKeyVisitMark.Clear();
+            _matchedTranslateKeys.Clear();
 
             for (var index = 0; index < rawDataList.Count; index++)
             {
@@ -341,7 +365,9 @@ namespace U0UGames.Localization.Editor
                     RemoveNotUseValue(rawExcelFileData);
                 }
 
-                LocalizationDataUtils.ConvertToTranslateExcelFile(rawExcelFileData, translateDataFolderFullPath);
+                _excelChangeInfoLookup.TryGetValue(rawExcelFileData.fileName, out var fileChangeInfoList);
+                LocalizationDataUtils.ConvertToTranslateExcelFileWithHighlight(
+                    rawExcelFileData, fileChangeInfoList, translateDataFolderFullPath);
                 float progress = (float)index / (float)rawDataList.Count;
                 EditorUtility.DisplayProgressBar("导出翻译表格", info, progress);
             }

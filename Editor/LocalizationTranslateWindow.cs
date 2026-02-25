@@ -213,39 +213,30 @@ namespace U0UGames.Localization.Editor
         }
         private string BuildSystemPrompt(string from, string to)
         {
-            var defaultPrompt = $@"你是一个专业的翻译助手。请将给定的文本从{from}翻译为{to}。
+            var sb = new StringBuilder();
+            sb.AppendLine($"你是专业的游戏本地化翻译助手。请将输入文本从 {from} 翻译为 {to}。");
+            sb.AppendLine();
+            sb.AppendLine("【翻译规则】");
+            sb.AppendLine($"1. 译文须准确、自然、流畅，符合 {to} 的游戏用语表达习惯");
+            sb.AppendLine("2. 保持原文语气、标点和换行符（\\n）等格式，不得增删内容");
+            sb.AppendLine("3. 严格原样保留 Unity 富文本标签（如 <color=#FF0000>文字</color>、<b>、<size=24> 等），不翻译标签名称及属性值");
+            sb.AppendLine("4. 严格原样保留被两个井号包围的占位符（如 #PlayerName#、#ItemCount# 等），不做任何修改");
+            sb.AppendLine("5. 输出 texts 数组的元素数量必须与输入的 num 值完全一致，顺序一一对应，不可合并或拆分条目");
+            sb.AppendLine("6. 只输出符合格式的 JSON，不附加任何解释、注释或 Markdown 代码块标记");
 
-            要求：
-            1. 保持原文的格式、语气和含义
-            2. 确保翻译准确、自然、流畅
-            3. 保持游戏文本的简洁性和可读性
-            4. 如果原文包含特殊符号、数字或专有名词，请保持原样
-            5. 返回JSON格式的翻译结果
+            sb.AppendLine();
+            sb.AppendLine("【输入 / 输出格式】");
+            sb.AppendLine("输入：{\"num\": 3, \"texts\": [\"原文1\", \"原文2\", \"原文3\"]}");
+            sb.AppendLine("输出：{\"num\": 3, \"texts\": [\"译文1\", \"译文2\", \"译文3\"]}");
 
-            输出格式示例：
-            输入示例:
-            {{
-                ""num"": 3,
-                ""texts"": [
-                    ""文本1"",
-                    ""文本2"",
-                    ""文本3""
-                ]
-            }}
-            输出示例：
-            {{
-                ""num"": 3,
-                ""texts"": [
-                    ""翻译结果1"",
-                    ""翻译结果2"",
-                    ""翻译结果3""
-                ]
-            }}";
-
-            if(!string.IsNullOrEmpty(_localizationConfig.translateAIPrompt)){
-                defaultPrompt += "\n" + _localizationConfig.translateAIPrompt;
+            if (!string.IsNullOrEmpty(_localizationConfig.translateAIPrompt))
+            {
+                sb.AppendLine();
+                sb.AppendLine("【附加要求】");
+                sb.AppendLine(_localizationConfig.translateAIPrompt);
             }
-            return defaultPrompt;
+
+            return sb.ToString();
         }
 
         private async Task<string[]> TranslateByAI(string from, string to, string[] textList, Action<string> onStreamContent = null)

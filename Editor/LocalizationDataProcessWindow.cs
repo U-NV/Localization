@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -23,11 +23,13 @@ namespace U0UGames.Localization.Editor
                 "LocalizationDataProcessWindow.NeedClearAllFilesBeforeSync";
             public const string AdditionalTextFilePath = 
                 "LocalizationDataProcessWindow.AdditionalTextFilePath";
-
+            public const string SyncDataFolderPath =
+                "LocalizationDataProcessWindow.SyncDataFolderPath";
         }
 
         // private int _languageCodeIndex;
         private LocalizationConfig _localizationConfig;
+        private LocalizationExcelExporter _excelExporter;
         // private bool _needClearAllFilesBeforeGenerate = false;
         private bool _needClearAllFilesBeforeSync = false;
 
@@ -39,6 +41,7 @@ namespace U0UGames.Localization.Editor
             {
                 _localizationConfig = LocalizationConfig.GetOrCreateLocalizationConfig();
             }
+            _excelExporter = new LocalizationExcelExporter(_localizationConfig);
             // _needClearAllFilesBeforeGenerate = 
             //     EditorPrefs.GetBool(EditorPrefsKey.NeedClearAllFilesBeforeGenerate);
             
@@ -46,6 +49,7 @@ namespace U0UGames.Localization.Editor
                 EditorPrefs.GetBool(EditorPrefsKey.NeedClearAllFilesBeforeSync);
             
             _additionalTextFileAssetPath = EditorPrefs.GetString(EditorPrefsKey.AdditionalTextFilePath);
+            _translateSyncDataFolderPath = EditorPrefs.GetString(EditorPrefsKey.SyncDataFolderPath, "");
         }
 
 
@@ -263,22 +267,30 @@ namespace U0UGames.Localization.Editor
         }
 
         private void SyncToTranslateData(
+            string currLanguageCode,
+            HashSet<string> translationLanguageCodes,
             LocalizationDataUtils.LocalizeLineData syncDataLine,
             LocalizationDataUtils.LocalizeLineData translateDataLine)
         {
             foreach (var newData in syncDataLine.translateDataAllValues)
             {
-                // 如果翻译文件中没有此数据, 将数据增补到翻译文件
-                if (!translateDataLine.translateDataAllValues.TryGetValue(newData.Key, out var currValue))
+                var key = newData.Key;
+
+                // 原文列：以本地为准，跳过
+                if (key == currLanguageCode) continue;
+
+                // 译文列：以回收表格为准，直接覆盖（保留翻译人员的全部工作成果）
+                if (translationLanguageCodes.Contains(key))
                 {
-                    translateDataLine.translateDataAllValues[newData.Key] = newData.Value;
+                    translateDataLine.translateDataAllValues[key] = newData.Value;
                     continue;
                 }
 
-                // 如果翻译文件中有此类型数据，且内容为空，同步
-                if (string.IsNullOrEmpty(currValue))
+                // 系统列（lTips1、lTips2 等）：仅补空，不覆盖本地内容
+                if (!translateDataLine.translateDataAllValues.TryGetValue(key, out var currValue)
+                    || string.IsNullOrEmpty(currValue))
                 {
-                    translateDataLine.translateDataAllValues[newData.Key] = newData.Value;
+                    translateDataLine.translateDataAllValues[key] = newData.Value;
                 }
             }
         }
@@ -297,7 +309,15 @@ namespace U0UGames.Localization.Editor
             {
                 Directory.CreateDirectory(translateDataFolderFullPath);
             }
-            
+
+            // 构建译文语言码集合（排除原文语言，用于判断哪些列以回收表格为准）
+            var translationLanguageCodes = new HashSet<string>();
+            foreach (var langConfig in _localizationConfig.languageDisplayDataList)
+            {
+                if (langConfig.languageCode != currLanguageCode)
+                    translationLanguageCodes.Add(langConfig.languageCode);
+            }
+
             for (var index = 0; index < syncDataList.Count; index++)
             {
                 var syncDataFile = syncDataList[index];
@@ -326,10 +346,10 @@ namespace U0UGames.Localization.Editor
                 {
                     var dataKey = syncDataLine.key;
                     // 没有设置关键词则跳过
-                    if(string.IsNullOrEmpty(dataKey))continue;
+                    if (string.IsNullOrEmpty(dataKey)) continue;
                     var translateDataLineList = sameNameTranslateData.GetDataListByKey(dataKey);
-                    
-                    // 翻译文件中找不到对应的关键词，则尝试查找原文。
+
+                    // 翻译文件中找不到对应的关键词，则尝试查找原文
                     if (translateDataLineList == null || translateDataLineList.Count == 0)
                     {
                         if (syncDataLine.translatedValues.TryGetValue(currLanguageCode, out var originText))
@@ -337,16 +357,16 @@ namespace U0UGames.Localization.Editor
                             if (sameNameTranslateData.TryGetDataByOriginText(currLanguageCode, originText,
                                     out var translateDataLine))
                             {
-                                SyncToTranslateData(syncDataLine, translateDataLine);
+                                SyncToTranslateData(currLanguageCode, translationLanguageCodes, syncDataLine, translateDataLine);
                             }
                         }
                         continue;
                     }
-                    
+
                     // 找到对应的关键词则直接同步
                     foreach (var translateDataLine in translateDataLineList)
                     {
-                        SyncToTranslateData(syncDataLine, translateDataLine);
+                        SyncToTranslateData(currLanguageCode, translationLanguageCodes, syncDataLine, translateDataLine);
                     }
                 }
                 // 将填入了翻译数据的原始文件保存到对应路径
@@ -362,16 +382,17 @@ namespace U0UGames.Localization.Editor
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
             {
-                string titleName = "同步数据文件夹:";
+                string titleName = "下载文件夹:";
                 EditorGUILayout.LabelField(titleName,GUILayout.Width(12*titleName.Length));
                 string buttonText = string.IsNullOrEmpty(_translateSyncDataFolderPath)? Application.dataPath : _translateSyncDataFolderPath;
                 if (GUILayout.Button(buttonText))
                 {
                     var newPath = EditorUtility.OpenFolderPanel(titleName, buttonText,null);
-                    if (!string.IsNullOrEmpty(newPath))
-                    {
-                        _translateSyncDataFolderPath = newPath;
-                    }
+                if (!string.IsNullOrEmpty(newPath))
+                {
+                    _translateSyncDataFolderPath = newPath;
+                    EditorPrefs.SetString(EditorPrefsKey.SyncDataFolderPath, newPath);
+                }
                 }
             }
             EditorGUILayout.EndHorizontal();
@@ -380,28 +401,75 @@ namespace U0UGames.Localization.Editor
         private void SyncTranslateFileData()
         {
             EditorGUILayout.BeginVertical();
-            EditorGUILayout.LabelField("同步新版本翻译表格数据", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("收回并更新翻译表格", EditorStyles.boldLabel);
+
+            EditorGUILayout.LabelField(
+                "用途：翻译人员将部分内容翻译完毕后，将最新的翻译表格下载到本地，\n" +
+                "选择下载文件夹后点击按钮，将自动完成：\n" +
+                "  1. 把下载表格中的译文填入本地翻译表格\n" +
+                "  2. 将游戏内文本的最新变动（增/删/改）合并进来\n" +
+                "  3. 重新导出带颜色标注的翻译表格，供翻译人员继续工作",
+                EditorStyles.helpBox);
+
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField("下载文件夹（翻译人员提供的最新表格所在目录）：", EditorStyles.miniLabel);
             SelectSyncDataFolder();
             
             var languageCode = _localizationConfig.OriginalLanguageCode;
             if (string.IsNullOrEmpty(languageCode))
             {
-                EditorGUILayout.LabelField("未选择语言");
+                EditorGUILayout.LabelField("Error: 未选择原文语言，请先在配置界面中设置", EditorStyles.helpBox);
                 EditorGUILayout.EndVertical();
                 return;
             }
-            
-            string info = $"同步新版本的翻译表格数据";
-            if (GUILayout.Button(info))
+
+            EditorGUILayout.Space(2);
+            if (GUILayout.Button("收回译文并重新导出翻译表格"))
             {
-                EditorUtility.DisplayProgressBar("同步",info,0);
+                EditorUtility.DisplayProgressBar("同步译文", "正在将下载表格中的译文填入本地...", 0);
                 var rootSyncFolderPath = UnityPathUtility.FullPathToRootFolderPath(_translateSyncDataFolderPath);
-                SyncTranslateData(languageCode,rootSyncFolderPath);
+                SyncTranslateData(languageCode, rootSyncFolderPath);
+
+                EditorUtility.DisplayProgressBar("重新导出", "正在合并游戏文本变动并导出翻译表格...", 0.6f);
+                _excelExporter.CheckRepeatKeyword(languageCode, out bool haveRepeatKeyword);
+                if (!haveRepeatKeyword)
+                {
+                    _excelExporter.ExportTranslateFile(languageCode);
+                }
+                else
+                {
+                    EditorUtility.ClearProgressBar();
+                    EditorUtility.DisplayDialog("错误", "收回译文成功，但重导出失败：原始数据中存在重复的关键词，详见更新日志", "确认");
+                }
+
                 EditorUtility.ClearProgressBar();
                 AssetDatabase.Refresh();
             }
+
+            ShowExportColorLegend();
             EditorGUILayout.EndVertical();
         }
+
+        private static void ShowExportColorLegend()
+        {
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField("导出颜色说明", EditorStyles.miniLabel);
+            DrawColorLegendRow(new Color(0.78f, 0.95f, 0.78f), "新增（需翻译）");
+            DrawColorLegendRow(new Color(1.00f, 0.97f, 0.70f), "原文修改（需重译）");
+            DrawColorLegendRow(new Color(1.00f, 0.87f, 0.65f), "关键词改变（可复用原译文）");
+            DrawColorLegendRow(new Color(0.88f, 0.88f, 0.88f), "待删除（可从表格中移除）");
+        }
+
+        private static void DrawColorLegendRow(Color color, string label)
+        {
+            EditorGUILayout.BeginHorizontal();
+            var rect = GUILayoutUtility.GetRect(14, 14, GUILayout.Width(14));
+            rect.y += 1;
+            EditorGUI.DrawRect(rect, color);
+            EditorGUILayout.LabelField(label, EditorStyles.miniLabel);
+            EditorGUILayout.EndHorizontal();
+        }
+
         public void OnGUI()
         {
             EditorGUILayout.BeginVertical();
@@ -411,7 +479,7 @@ namespace U0UGames.Localization.Editor
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 StatisticsOriginData();
                 EditorGUILayout.EndVertical();
-            }
+            }  
 
             EditorGUILayout.Separator();
             {
