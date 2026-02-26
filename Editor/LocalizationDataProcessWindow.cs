@@ -424,50 +424,17 @@ namespace U0UGames.Localization.Editor
             }
 
             EditorGUILayout.Space(2);
-            if (GUILayout.Button("收回译文并重新导出翻译表格"))
+            if (GUILayout.Button("收回译文到翻译表格"))
             {
                 EditorUtility.DisplayProgressBar("同步译文", "正在将下载表格中的译文填入本地...", 0);
+                
                 var rootSyncFolderPath = UnityPathUtility.FullPathToRootFolderPath(_translateSyncDataFolderPath);
                 SyncTranslateData(languageCode, rootSyncFolderPath);
-
-                EditorUtility.DisplayProgressBar("重新导出", "正在合并游戏文本变动并导出翻译表格...", 0.6f);
-                _excelExporter.CheckRepeatKeyword(languageCode, out bool haveRepeatKeyword);
-                if (!haveRepeatKeyword)
-                {
-                    _excelExporter.ExportTranslateFile(languageCode);
-                }
-                else
-                {
-                    EditorUtility.ClearProgressBar();
-                    EditorUtility.DisplayDialog("错误", "收回译文成功，但重导出失败：原始数据中存在重复的关键词，详见更新日志", "确认");
-                }
 
                 EditorUtility.ClearProgressBar();
                 AssetDatabase.Refresh();
             }
-
-            ShowExportColorLegend();
             EditorGUILayout.EndVertical();
-        }
-
-        private static void ShowExportColorLegend()
-        {
-            EditorGUILayout.Space(2);
-            EditorGUILayout.LabelField("导出颜色说明", EditorStyles.miniLabel);
-            DrawColorLegendRow(new Color(0.78f, 0.95f, 0.78f), "新增（需翻译）");
-            DrawColorLegendRow(new Color(1.00f, 0.97f, 0.70f), "原文修改（需重译）");
-            DrawColorLegendRow(new Color(1.00f, 0.87f, 0.65f), "关键词改变（可复用原译文）");
-            DrawColorLegendRow(new Color(0.88f, 0.88f, 0.88f), "待删除（可从表格中移除）");
-        }
-
-        private static void DrawColorLegendRow(Color color, string label)
-        {
-            EditorGUILayout.BeginHorizontal();
-            var rect = GUILayoutUtility.GetRect(14, 14, GUILayout.Width(14));
-            rect.y += 1;
-            EditorGUI.DrawRect(rect, color);
-            EditorGUILayout.LabelField(label, EditorStyles.miniLabel);
-            EditorGUILayout.EndHorizontal();
         }
 
         public void OnGUI()
