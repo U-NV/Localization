@@ -20,7 +20,7 @@ namespace U0UGames.Localization
     {
         public static event Action<string> OnLanguageChanged;
         /// <summary>数据加载完成事件（初始化及每次切换语言后触发）</summary>
-        public static event Action OnLoadOver;
+        public static event Action OnDataLoadOver;
         
         private static bool _isDataLoaded = false;
         /// <summary>当前语言数据是否已加载完成</summary>
@@ -283,7 +283,7 @@ namespace U0UGames.Localization
                 {
                     Debug.Log($"[Localization] {address} 加载完成，共 {DataModuleManager.GetTextCount()} 条文本");
                     _isDataLoaded = true;
-                    OnLoadOver?.Invoke();
+                    OnDataLoadOver?.Invoke();
                 }
             }
             else
