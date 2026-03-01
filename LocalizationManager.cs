@@ -227,6 +227,13 @@ namespace U0UGames.Localization
             return code;
         }
 
+        public static float CurrLanguageTextAnimSpeed{
+            get{
+                if(Config == null)return 1.0f;
+                return Config.languageDisplayDataList.Find(x => x.languageCode == CurrLanguageCode).textAnimSpeed;
+            }
+        }
+
         public static string GetRecommendLanguageCode()
         {
             var currLanguage = System.Globalization.CultureInfo.InstalledUICulture.Name;

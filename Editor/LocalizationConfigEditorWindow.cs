@@ -114,7 +114,7 @@ namespace U0UGames.Localization.Editor
                     EditorGUILayout.LabelField($"#{i + 1}", EditorStyles.boldLabel, GUILayout.Width(26));
 
                     // 语言代码（只读）
-                    EditorGUILayout.LabelField("语言代码", GUILayout.Width(48));
+                    EditorGUILayout.LabelField("语言代码", GUILayout.Width(56));
                     GUI.enabled = false;
                     EditorGUILayout.TextField(configList[i].languageCode, GUILayout.Width(72));
                     GUI.enabled = true;
@@ -122,8 +122,10 @@ namespace U0UGames.Localization.Editor
                     GUILayout.Space(4);
 
                     // 显示名称（可编辑）
-                    EditorGUILayout.LabelField("显示名称", GUILayout.Width(48));
+                    EditorGUILayout.LabelField("显示名称", GUILayout.Width(56));
                     configList[i].displayName = EditorGUILayout.TextField(configList[i].displayName);
+
+                    GUILayout.Space(4);
 
                     // 恢复默认显示名称
                     var canReset = TryGetCulture(configList[i].languageCode, out var resetCulture);
@@ -133,6 +135,10 @@ namespace U0UGames.Localization.Editor
                         configList[i].displayName = resetCulture.NativeName;
                     }
                     GUI.enabled = true;
+
+                    // 文字动画速度（可编辑）
+                    EditorGUILayout.LabelField("文字动画速度", GUILayout.Width(80));
+                    configList[i].textAnimSpeed = EditorGUILayout.FloatField(configList[i].textAnimSpeed, GUILayout.Width(80));
 
                     // 选择语言弹窗
                     if (GUILayout.Button("选择…", GUILayout.Width(46)))

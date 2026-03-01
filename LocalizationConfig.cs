@@ -136,6 +136,7 @@ namespace U0UGames.Localization
         {
             public string languageCode;
             public string displayName;
+            public float textAnimSpeed = 1.0f;
         }
 
         [System.Serializable]
