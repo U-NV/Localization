@@ -221,7 +221,6 @@ namespace U0UGames.Localization
         }
 
 
-        public string translateApiKey;
         public string translateApiUrl;
         public string translateAIPrompt;
         public bool saveExportDiffFile;

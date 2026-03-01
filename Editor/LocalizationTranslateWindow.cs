@@ -73,6 +73,7 @@ namespace U0UGames.Localization.Editor
         public class EditorPrefsKey
         {
             public const string TranslateToIndex = "LocalizationTranslateWindow.TranslateToIndex";
+            public const string TranslateApiKey = "LocalizationTranslateWindow.TranslateApiKey";
         }
         private LocalizationConfig _localizationConfig;
         private int _translateToIndex = 1;
@@ -101,8 +102,18 @@ namespace U0UGames.Localization.Editor
             EditorGUILayout.LabelField("翻译", EditorStyles.boldLabel);
             
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            // API Key 存储在本机 EditorPrefs 中，不随 Asset 提交到版本控制
             EditorGUI.BeginChangeCheck();
-            _localizationConfig.translateApiKey = EditorGUILayout.TextField("翻译API Key", _localizationConfig.translateApiKey);
+            var apiKey = EditorPrefs.GetString(EditorPrefsKey.TranslateApiKey, "");
+            var newApiKey = EditorGUILayout.TextField("翻译API Key", apiKey);
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorPrefs.SetString(EditorPrefsKey.TranslateApiKey, newApiKey);
+            }
+            EditorGUILayout.HelpBox("API Key 仅保存在本机，不会上传到版本控制", MessageType.None);
+
+            EditorGUI.BeginChangeCheck();
             _localizationConfig.translateApiUrl = EditorGUILayout.TextField("翻译API URL", _localizationConfig.translateApiUrl);
             
             // 显示API URL格式提示
@@ -248,9 +259,10 @@ namespace U0UGames.Localization.Editor
                 return null;
             }
 
-            if (string.IsNullOrEmpty(_localizationConfig.translateApiKey))
+            var translateApiKey = EditorPrefs.GetString(EditorPrefsKey.TranslateApiKey, "");
+            if (string.IsNullOrEmpty(translateApiKey))
             {
-                Debug.LogError("翻译API Key未配置");
+                Debug.LogError("翻译API Key未配置，请在翻译窗口中填写 API Key");
                 return null;
             }
 
@@ -297,7 +309,7 @@ namespace U0UGames.Localization.Editor
                     httpClient.Timeout = TimeSpan.FromMinutes(5);
                     
                     // 设置请求头，按照DeepSeek API要求
-                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_localizationConfig.translateApiKey}");
+                    httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {translateApiKey}");
                     
                     var requestBody = new
                     {
