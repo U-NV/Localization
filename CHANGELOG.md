@@ -7,6 +7,13 @@
 
 ---
 
+## [1.1.25] - 2026-03-02
+
+### Changes
+- 添加 CHANGELOG.md
+
+---
+
 ## [1.1.24] - 2026-03-02
 
 ### Changes
@@ -33,4 +40,5 @@
 
 ---
 
+[1.1.25]: https://github.com/U-NV/Localization/releases/tag/v1.1.25
 [1.1.24]: https://github.com/U-NV/Localization/releases/tag/v1.1.24
